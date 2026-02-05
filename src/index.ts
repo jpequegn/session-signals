@@ -1,0 +1,27 @@
+export type {
+  HarnessType,
+  NormalizedEventType,
+  NormalizedEvent,
+  FrictionSignalType,
+  Severity,
+  FrictionSignal,
+  SessionOutcome,
+  SessionFacets,
+  Scope,
+  SignalRecord,
+  PatternTrend,
+  PatternType,
+  Pattern,
+  DelightPattern,
+  PatternAnalysis,
+  TaggerConfig,
+  AnalyzerConfig,
+  BeadsActionConfig,
+  DigestActionConfig,
+  AutofixActionConfig,
+  ActionsConfig,
+  ScopeRulesConfig,
+  Config,
+} from "./lib/types.js";
+
+export type { HarnessAdapter } from "./adapters/types.js";
