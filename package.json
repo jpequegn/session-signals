@@ -1,0 +1,14 @@
+{
+  "name": "session-signals",
+  "version": "0.1.0",
+  "description": "Self-improving friction detection for AI coding agents",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
