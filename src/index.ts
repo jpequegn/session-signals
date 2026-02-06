@@ -20,8 +20,12 @@ export type {
   DigestActionConfig,
   AutofixActionConfig,
   ActionsConfig,
+  HarnessConfig,
+  HarnessesConfig,
   ScopeRulesConfig,
   Config,
 } from "./lib/types.js";
 
 export type { HarnessAdapter } from "./adapters/types.js";
+
+export { loadConfig } from "./lib/config.js";
