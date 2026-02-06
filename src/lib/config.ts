@@ -20,8 +20,17 @@ function assertString(obj: Record<string, unknown>, key: string, path: string): 
   }
 }
 
+function assertUrl(obj: Record<string, unknown>, key: string, path: string): void {
+  assertString(obj, key, path);
+  try {
+    new URL(obj[key] as string);
+  } catch {
+    throw new Error(`config.${path}.${key} must be a valid URL`);
+  }
+}
+
 function assertNumber(obj: Record<string, unknown>, key: string, path: string): void {
-  if (typeof obj[key] !== "number") {
+  if (typeof obj[key] !== "number" || !Number.isFinite(obj[key] as number)) {
     throw new Error(`config.${path}.${key} must be a number`);
   }
 }
@@ -104,7 +113,7 @@ function validateAnalyzer(analyzer: unknown, warn: (msg: string) => void): void 
   const a = analyzer as Record<string, unknown>;
   warnExtraneousKeys(a, ANALYZER_KEYS, "analyzer", warn);
   assertString(a, "model", "analyzer");
-  assertString(a, "ollama_url", "analyzer");
+  assertUrl(a, "ollama_url", "analyzer");
   assertPositiveNumber(a, "lookback_days", "analyzer");
   assertNonNegativeNumber(a, "min_session_signals", "analyzer");
 }
@@ -145,17 +154,24 @@ function validateActions(actions: unknown, warn: (msg: string) => void): void {
 }
 
 const HARNESS_ENTRY_KEYS = ["enabled", "events_dir"] as const;
+const KNOWN_HARNESSES = ["claude_code", "gemini_cli", "pi_coding_agent"] as const;
 
 function validateHarnesses(harnesses: unknown, warn: (msg: string) => void): void {
   assertObject(harnesses, "harnesses");
   const h = harnesses as Record<string, unknown>;
 
   for (const key of Object.keys(h)) {
+    if (!(KNOWN_HARNESSES as readonly string[]).includes(key)) {
+      warn(`config warning: unrecognized harness "${key}" in harnesses`);
+    }
     assertObject(h[key], `harnesses.${key}`);
     const entry = h[key] as Record<string, unknown>;
     warnExtraneousKeys(entry, HARNESS_ENTRY_KEYS, `harnesses.${key}`, warn);
     assertBoolean(entry, "enabled", `harnesses.${key}`);
     assertString(entry, "events_dir", `harnesses.${key}`);
+    if (entry["enabled"] === true && (entry["events_dir"] as string) === "") {
+      throw new Error(`config.harnesses.${key}.events_dir must be non-empty when enabled`);
+    }
   }
 }
 
