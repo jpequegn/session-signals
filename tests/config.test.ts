@@ -253,12 +253,11 @@ describe("loadConfig", () => {
       harnesses: { claude_code: { enabled: true, events_dir: "" } },
       scope_rules: { pai_paths: [], ignore_paths: [] },
     }));
-    const spy = spyOn(console, "warn").mockImplementation(() => {});
+    const warnings: string[] = [];
     try {
-      await loadConfig(bad);
-      expect(spy).toHaveBeenCalledWith('config warning: unexpected key "unknown_field" in tagger');
+      await loadConfig(bad, { warn: (msg) => warnings.push(msg) });
+      expect(warnings).toContain('config warning: unexpected key "unknown_field" in tagger');
     } finally {
-      spy.mockRestore();
       await rm(bad, { force: true });
     }
   });
