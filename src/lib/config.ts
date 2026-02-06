@@ -5,7 +5,8 @@ import type { Config, Severity } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Go up two levels to package root (works from both src/lib/ and dist/lib/),
-// then into src/config.json.
+// then into src/config.json. This assumes src/ is always present at runtime
+// (i.e. config.json is not copied into dist/).
 const DEFAULT_CONFIG_PATH = resolve(__dirname, "..", "..", "src", "config.json");
 
 const VALID_SEVERITIES: readonly string[] = ["high", "medium", "low"];
@@ -33,11 +34,18 @@ function assertPositiveNumber(obj: Record<string, unknown>, key: string, path: s
   }
 }
 
-function assertUnitInterval(obj: Record<string, unknown>, key: string, path: string): void {
+function assertNonNegativeNumber(obj: Record<string, unknown>, key: string, path: string): void {
+  assertNumber(obj, key, path);
+  if ((obj[key] as number) < 0) {
+    throw new Error(`config.${path}.${key} must be non-negative`);
+  }
+}
+
+function assertExclusiveUnitInterval(obj: Record<string, unknown>, key: string, path: string): void {
   assertNumber(obj, key, path);
   const v = obj[key] as number;
-  if (v < 0 || v > 1) {
-    throw new Error(`config.${path}.${key} must be between 0 and 1`);
+  if (v <= 0 || v >= 1) {
+    throw new Error(`config.${path}.${key} must be between 0 and 1 exclusive`);
   }
 }
 
@@ -69,14 +77,14 @@ function assertObject(value: unknown, path: string): asserts value is Record<str
 function validateTagger(tagger: unknown): void {
   assertObject(tagger, "tagger");
   const t = tagger as Record<string, unknown>;
-  assertPositiveNumber(t, "rephrase_threshold", "tagger");
-  assertUnitInterval(t, "rephrase_similarity", "tagger");
-  assertPositiveNumber(t, "tool_failure_cascade_min", "tagger");
-  assertPositiveNumber(t, "context_churn_threshold", "tagger");
+  assertNonNegativeNumber(t, "rephrase_threshold", "tagger");
+  assertExclusiveUnitInterval(t, "rephrase_similarity", "tagger");
+  assertNonNegativeNumber(t, "tool_failure_cascade_min", "tagger");
+  assertNonNegativeNumber(t, "context_churn_threshold", "tagger");
   assertPositiveNumber(t, "abandon_window_seconds", "tagger");
   assertPositiveNumber(t, "stall_threshold_seconds", "tagger");
-  assertPositiveNumber(t, "retry_loop_min", "tagger");
-  assertUnitInterval(t, "retry_similarity", "tagger");
+  assertNonNegativeNumber(t, "retry_loop_min", "tagger");
+  assertExclusiveUnitInterval(t, "retry_similarity", "tagger");
 }
 
 function validateAnalyzer(analyzer: unknown): void {
@@ -85,7 +93,7 @@ function validateAnalyzer(analyzer: unknown): void {
   assertString(a, "model", "analyzer");
   assertString(a, "ollama_url", "analyzer");
   assertPositiveNumber(a, "lookback_days", "analyzer");
-  assertPositiveNumber(a, "min_session_signals", "analyzer");
+  assertNonNegativeNumber(a, "min_session_signals", "analyzer");
 }
 
 function validateActions(actions: unknown): void {
@@ -96,7 +104,7 @@ function validateActions(actions: unknown): void {
   const beads = a["beads"] as Record<string, unknown>;
   assertBoolean(beads, "enabled", "actions.beads");
   assertSeverity(beads, "min_severity", "actions.beads");
-  assertPositiveNumber(beads, "min_frequency", "actions.beads");
+  assertNonNegativeNumber(beads, "min_frequency", "actions.beads");
   assertString(beads, "title_prefix", "actions.beads");
 
   assertObject(a["digest"], "actions.digest");
@@ -108,7 +116,7 @@ function validateActions(actions: unknown): void {
   const autofix = a["autofix"] as Record<string, unknown>;
   assertBoolean(autofix, "enabled", "actions.autofix");
   assertSeverity(autofix, "min_severity", "actions.autofix");
-  assertPositiveNumber(autofix, "min_frequency", "actions.autofix");
+  assertNonNegativeNumber(autofix, "min_frequency", "actions.autofix");
   assertString(autofix, "branch_prefix", "actions.autofix");
   assertPositiveNumber(autofix, "branch_ttl_days", "actions.autofix");
   assertStringArray(autofix, "allowed_tools", "actions.autofix");
