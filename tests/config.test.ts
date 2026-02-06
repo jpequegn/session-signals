@@ -233,6 +233,36 @@ describe("loadConfig", () => {
     }
   });
 
+  it("warns on extraneous nested config keys", async () => {
+    const bad = resolve(tmpdir(), `roborev-test-${randomUUID()}-nested-extra-key.json`);
+    await writeFile(bad, JSON.stringify({
+      version: "1.0.0",
+      tagger: {
+        rephrase_threshold: 3, rephrase_similarity: 0.6,
+        tool_failure_cascade_min: 3, context_churn_threshold: 2,
+        abandon_window_seconds: 120, stall_threshold_seconds: 60,
+        retry_loop_min: 3, retry_similarity: 0.7,
+        unknown_field: true,
+      },
+      analyzer: { model: "llama3.2", ollama_url: "http://localhost:11434", lookback_days: 7, min_session_signals: 1 },
+      actions: {
+        beads: { enabled: true, min_severity: "medium", min_frequency: 2, title_prefix: "[signals]" },
+        digest: { enabled: true, output_dir: "out" },
+        autofix: { enabled: true, min_severity: "high", min_frequency: 3, branch_prefix: "fix-", branch_ttl_days: 14, allowed_tools: [] },
+      },
+      harnesses: { claude_code: { enabled: true, events_dir: "" } },
+      scope_rules: { pai_paths: [], ignore_paths: [] },
+    }));
+    const spy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await loadConfig(bad);
+      expect(spy).toHaveBeenCalledWith('config warning: unexpected key "unknown_field" in tagger');
+    } finally {
+      spy.mockRestore();
+      await rm(bad, { force: true });
+    }
+  });
+
   it("rejects non-existent config file", async () => {
     await expect(loadConfig("/nonexistent/config.json")).rejects.toThrow();
   });
