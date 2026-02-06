@@ -31,7 +31,7 @@ function assertUrl(obj: Record<string, unknown>, key: string, path: string): voi
 
 function assertNumber(obj: Record<string, unknown>, key: string, path: string): void {
   if (typeof obj[key] !== "number" || !Number.isFinite(obj[key] as number)) {
-    throw new Error(`config.${path}.${key} must be a number`);
+    throw new Error(`config.${path}.${key} must be a finite number`);
   }
 }
 
