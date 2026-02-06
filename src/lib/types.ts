@@ -209,11 +209,7 @@ export interface HarnessConfig {
   events_dir: string;
 }
 
-export interface HarnessesConfig {
-  claude_code: HarnessConfig;
-  gemini_cli: HarnessConfig;
-  pi_coding_agent: HarnessConfig;
-}
+export type HarnessesConfig = Record<string, HarnessConfig>;
 
 export interface ScopeRulesConfig {
   pai_paths: string[];

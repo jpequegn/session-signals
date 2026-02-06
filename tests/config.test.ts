@@ -31,7 +31,7 @@ describe("loadConfig", () => {
     try {
       await expect(loadConfig(bad)).rejects.toThrow("config.tagger must be an object");
     } finally {
-      await rm(bad);
+      await rm(bad, { force: true });
     }
   });
 
@@ -62,7 +62,7 @@ describe("loadConfig", () => {
     try {
       await expect(loadConfig(bad)).rejects.toThrow("must be one of: high, medium, low");
     } finally {
-      await rm(bad);
+      await rm(bad, { force: true });
     }
   });
 
