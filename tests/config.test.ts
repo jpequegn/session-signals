@@ -3,9 +3,10 @@ import { loadConfig } from "../src/lib/config.js";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_CONFIG = resolve(__dirname, "..", "src", "config.json");
+const DEFAULT_CONFIG = resolve(__dirname, "..", "config.json");
 
 describe("loadConfig", () => {
   it("loads and validates the default config.json", async () => {
@@ -26,7 +27,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with missing tagger section", async () => {
-    const bad = resolve(__dirname, "bad-config.json");
+    const bad = resolve(tmpdir(), "roborev-test-bad-config.json");
     await writeFile(bad, JSON.stringify({ version: "1.0.0" }));
     try {
       await expect(loadConfig(bad)).rejects.toThrow("config.tagger must be an object");
@@ -36,7 +37,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with invalid severity", async () => {
-    const bad = resolve(__dirname, "bad-severity.json");
+    const bad = resolve(tmpdir(), "roborev-test-bad-severity.json");
     const config = {
       version: "1.0.0",
       tagger: {
@@ -67,7 +68,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with negative retry_loop_min", async () => {
-    const bad = resolve(__dirname, "bad-negative.json");
+    const bad = resolve(tmpdir(), "roborev-test-bad-negative.json");
     const config = {
       version: "1.0.0",
       tagger: {
@@ -94,7 +95,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with similarity out of (0,1) range", async () => {
-    const bad = resolve(__dirname, "bad-similarity.json");
+    const bad = resolve(tmpdir(), "roborev-test-bad-similarity.json");
     const config = {
       version: "1.0.0",
       tagger: {
@@ -121,7 +122,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with similarity of exactly 0", async () => {
-    const bad = resolve(__dirname, "bad-similarity-zero.json");
+    const bad = resolve(tmpdir(), "roborev-test-bad-similarity-zero.json");
     const config = {
       version: "1.0.0",
       tagger: {
@@ -148,7 +149,7 @@ describe("loadConfig", () => {
   });
 
   it("accepts config with zero for count fields", async () => {
-    const good = resolve(__dirname, "zero-counts.json");
+    const good = resolve(tmpdir(), "roborev-test-zero-counts.json");
     const config = {
       version: "1.0.0",
       tagger: {
