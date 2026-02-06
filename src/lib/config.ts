@@ -73,10 +73,10 @@ function assertObject(value: unknown, path: string): asserts value is Record<str
   }
 }
 
-function warnExtraneousKeys(obj: Record<string, unknown>, expected: readonly string[], path: string): void {
+function warnExtraneousKeys(obj: Record<string, unknown>, expected: readonly string[], path: string, warn: (msg: string) => void = console.warn): void {
   for (const key of Object.keys(obj)) {
     if (!expected.includes(key)) {
-      console.warn(`config warning: unexpected key "${key}" in ${path || "root"}`);
+      warn(`config warning: unexpected key "${key}" in ${path}`);
     }
   }
 }
@@ -174,7 +174,7 @@ const CONFIG_KEYS = ["version", "tagger", "analyzer", "actions", "harnesses", "s
 function validateConfig(raw: unknown): Config {
   assertObject(raw, "");
   const obj = raw as Record<string, unknown>;
-  warnExtraneousKeys(obj, CONFIG_KEYS, "");
+  warnExtraneousKeys(obj, CONFIG_KEYS, "root");
   assertString(obj, "version", "");
   const version = obj["version"] as string;
   if (!SUPPORTED_VERSIONS.includes(version)) {

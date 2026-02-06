@@ -1,9 +1,10 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, spyOn } from "bun:test";
 import { loadConfig } from "../src/lib/config.js";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CONFIG = resolve(__dirname, "..", "config.json");
@@ -27,7 +28,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with missing tagger section", async () => {
-    const bad = resolve(tmpdir(), "roborev-test-bad-config.json");
+    const bad = resolve(tmpdir(), `roborev-test-${randomUUID()}-bad-config.json`);
     await writeFile(bad, JSON.stringify({ version: "1.0.0" }));
     try {
       await expect(loadConfig(bad)).rejects.toThrow("config.tagger must be an object");
@@ -37,7 +38,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with invalid severity", async () => {
-    const bad = resolve(tmpdir(), "roborev-test-bad-severity.json");
+    const bad = resolve(tmpdir(), `roborev-test-${randomUUID()}-bad-severity.json`);
     const config = {
       version: "1.0.0",
       tagger: {
@@ -68,7 +69,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with negative retry_loop_min", async () => {
-    const bad = resolve(tmpdir(), "roborev-test-bad-negative.json");
+    const bad = resolve(tmpdir(), `roborev-test-${randomUUID()}-bad-negative.json`);
     const config = {
       version: "1.0.0",
       tagger: {
@@ -95,7 +96,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with similarity out of (0,1) range", async () => {
-    const bad = resolve(tmpdir(), "roborev-test-bad-similarity.json");
+    const bad = resolve(tmpdir(), `roborev-test-${randomUUID()}-bad-similarity.json`);
     const config = {
       version: "1.0.0",
       tagger: {
@@ -122,7 +123,7 @@ describe("loadConfig", () => {
   });
 
   it("rejects config with similarity of exactly 0", async () => {
-    const bad = resolve(tmpdir(), "roborev-test-bad-similarity-zero.json");
+    const bad = resolve(tmpdir(), `roborev-test-${randomUUID()}-bad-similarity-zero.json`);
     const config = {
       version: "1.0.0",
       tagger: {
@@ -149,7 +150,7 @@ describe("loadConfig", () => {
   });
 
   it("accepts config with zero for count fields", async () => {
-    const good = resolve(tmpdir(), "roborev-test-zero-counts.json");
+    const good = resolve(tmpdir(), `roborev-test-${randomUUID()}-zero-counts.json`);
     const config = {
       version: "1.0.0",
       tagger: {
@@ -173,6 +174,62 @@ describe("loadConfig", () => {
       expect(loaded.tagger.retry_loop_min).toBe(0);
     } finally {
       await rm(good, { force: true });
+    }
+  });
+
+  it("rejects unsupported config version", async () => {
+    const bad = resolve(tmpdir(), `roborev-test-${randomUUID()}-bad-version.json`);
+    await writeFile(bad, JSON.stringify({
+      version: "2.0.0",
+      tagger: {
+        rephrase_threshold: 3, rephrase_similarity: 0.6,
+        tool_failure_cascade_min: 3, context_churn_threshold: 2,
+        abandon_window_seconds: 120, stall_threshold_seconds: 60,
+        retry_loop_min: 3, retry_similarity: 0.7,
+      },
+      analyzer: { model: "llama3.2", ollama_url: "http://localhost:11434", lookback_days: 7, min_session_signals: 1 },
+      actions: {
+        beads: { enabled: true, min_severity: "medium", min_frequency: 2, title_prefix: "[signals]" },
+        digest: { enabled: true, output_dir: "out" },
+        autofix: { enabled: true, min_severity: "high", min_frequency: 3, branch_prefix: "fix-", branch_ttl_days: 14, allowed_tools: [] },
+      },
+      harnesses: { claude_code: { enabled: true, events_dir: "" } },
+      scope_rules: { pai_paths: [], ignore_paths: [] },
+    }));
+    try {
+      await expect(loadConfig(bad)).rejects.toThrow('config version "2.0.0" is not supported');
+    } finally {
+      await rm(bad, { force: true });
+    }
+  });
+
+  it("warns on extraneous config keys", async () => {
+    const bad = resolve(tmpdir(), `roborev-test-${randomUUID()}-extra-key.json`);
+    await writeFile(bad, JSON.stringify({
+      version: "1.0.0",
+      tagger: {
+        rephrase_threshold: 3, rephrase_similarity: 0.6,
+        tool_failure_cascade_min: 3, context_churn_threshold: 2,
+        abandon_window_seconds: 120, stall_threshold_seconds: 60,
+        retry_loop_min: 3, retry_similarity: 0.7,
+      },
+      analyzer: { model: "llama3.2", ollama_url: "http://localhost:11434", lookback_days: 7, min_session_signals: 1 },
+      actions: {
+        beads: { enabled: true, min_severity: "medium", min_frequency: 2, title_prefix: "[signals]" },
+        digest: { enabled: true, output_dir: "out" },
+        autofix: { enabled: true, min_severity: "high", min_frequency: 3, branch_prefix: "fix-", branch_ttl_days: 14, allowed_tools: [] },
+      },
+      harnesses: { claude_code: { enabled: true, events_dir: "" } },
+      scope_rules: { pai_paths: [], ignore_paths: [] },
+      unknown_key: true,
+    }));
+    const spy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await loadConfig(bad);
+      expect(spy).toHaveBeenCalledWith('config warning: unexpected key "unknown_key" in root');
+    } finally {
+      spy.mockRestore();
+      await rm(bad, { force: true });
     }
   });
 
