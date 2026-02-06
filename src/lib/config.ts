@@ -196,5 +196,5 @@ export async function loadConfig(path?: string, { warn }: { warn?: (msg: string)
   const configPath = path ?? DEFAULT_CONFIG_PATH;
   const raw = await readFile(configPath, "utf-8");
   const parsed: unknown = JSON.parse(raw);
-  return warn ? validateConfig(parsed, warn) : validateConfig(parsed);
+  return validateConfig(parsed, warn ?? console.warn);
 }

@@ -262,6 +262,16 @@ describe("loadConfig", () => {
     }
   });
 
+  it("rejects malformed JSON", async () => {
+    const bad = resolve(tmpdir(), `roborev-test-${randomUUID()}-malformed.json`);
+    await writeFile(bad, "{bad");
+    try {
+      await expect(loadConfig(bad)).rejects.toThrow(SyntaxError);
+    } finally {
+      await rm(bad, { force: true });
+    }
+  });
+
   it("rejects non-existent config file", async () => {
     await expect(loadConfig("/nonexistent/config.json")).rejects.toThrow();
   });
