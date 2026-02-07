@@ -435,6 +435,7 @@ describe("detectRetryLoop", () => {
     expect(result).not.toBeNull();
     expect(result!.count).toBe(4);
     // Verify the captured streak is the second (longer) shell_exec streak, not the first
+    expect(result!.evidence.event_indices.length).toBeGreaterThan(0);
     expect(result!.evidence.event_indices.every((i) => events[i]!.tool_name === "shell_exec")).toBe(true);
   });
 
@@ -635,7 +636,10 @@ describe("extractFacets", () => {
     // Duration based on valid timestamps only
     expect(facets.session_duration_min).toBe(1);
     expect(facets.outcome).toBe("completed");
-    // Tool metrics should still be computed from all tool events regardless of timestamp validity
+    // Tool metrics are computed from all tool events regardless of timestamp validity.
+    // This asserts current behavior: a tool_result with a malformed timestamp is still
+    // counted toward tool metrics. If extractFacets gains timestamp-based filtering for
+    // tool events, this test should surface that change.
     expect(facets.tools_used).toEqual(["file_read", "shell_exec"]);
     expect(facets.tool_failure_rate).toBe(0.5);
   });
