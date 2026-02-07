@@ -27,5 +27,7 @@ export type {
 } from "./lib/types.js";
 
 export type { HarnessAdapter } from "./adapters/types.js";
+export { ClaudeCodeAdapter } from "./adapters/claude-code.js";
+export type { ClaudeCodeAdapterOptions } from "./adapters/claude-code.js";
 
 export { loadConfig } from "./lib/config.js";
