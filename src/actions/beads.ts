@@ -101,10 +101,19 @@ export function findExistingIssue(searchOutput: string, title: string): string |
     // not the whole line (avoids false positives if the title contains "closed")
     if (/^closed\b/i.test(rest)) continue;
 
-    // Strip any status word (e.g. "open", "in_progress") between the ID and title
+    // Strip a single status word between the ID and title (e.g. "open", "in_progress")
     // so that lines like "SS-1  open  [signals] Shell failures" still match.
-    const statusMatch = rest.match(/^(open|in_progress|pending|active|new)\b\s*/i);
-    if (statusMatch) rest = rest.slice(statusMatch[0].length);
+    // Instead of a hardcoded list, strip any single non-bracket word followed by
+    // whitespace when the title starts with '[' — this handles any bd status.
+    if (title.startsWith("[")) {
+      const statusMatch = rest.match(/^[a-z_]+\b\s+/i);
+      if (statusMatch) rest = rest.slice(statusMatch[0].length);
+    } else {
+      // For titles without brackets, use a known-status list to avoid
+      // accidentally stripping part of the title.
+      const statusMatch = rest.match(/^(open|in_progress|pending|active|new|backlog|todo|blocked|wontfix|resolved)\b\s*/i);
+      if (statusMatch) rest = rest.slice(statusMatch[0].length);
+    }
 
     // Match title at start of remaining text (after issue ID).
     // Exact match, or match ignoring trailing whitespace (e.g. single trailing space).
@@ -233,6 +242,7 @@ export async function executeBeadsAction(
       results.push({
         pattern_id: pattern.id,
         action: "skipped",
+        issue_title: title,
         reason: `Error: ${msg}`,
       });
     }

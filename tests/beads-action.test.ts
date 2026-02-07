@@ -244,6 +244,7 @@ describe("executeBeadsAction", () => {
 
     expect(results).toHaveLength(2);
     expect(results.every((r) => r.action === "skipped")).toBe(true);
+    expect(results.every((r) => r.issue_title)).toBe(true);
     expect(warnings.some((w) => w.includes("not available"))).toBe(true);
   });
 
@@ -259,6 +260,7 @@ describe("executeBeadsAction", () => {
     expect(results).toHaveLength(1);
     expect(results[0]!.action).toBe("skipped");
     expect(results[0]!.reason).toContain("Below threshold");
+    expect(results[0]!.issue_title).toBeDefined();
   });
 
   it("creates new issue when no existing match", async () => {
@@ -332,6 +334,7 @@ describe("executeBeadsAction", () => {
     expect(results).toHaveLength(1);
     expect(results[0]!.action).toBe("skipped");
     expect(results[0]!.reason).toContain("Error");
+    expect(results[0]!.issue_title).toBeDefined();
     expect(warnings.length).toBeGreaterThan(0);
   });
 
@@ -351,6 +354,7 @@ describe("executeBeadsAction", () => {
     expect(results).toHaveLength(1);
     expect(results[0]!.action).toBe("skipped");
     expect(results[0]!.reason).toContain("Error");
+    expect(results[0]!.issue_title).toBeDefined();
     expect(warnings.length).toBeGreaterThan(0);
   });
 
