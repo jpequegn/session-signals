@@ -86,10 +86,9 @@ function contentToEvents(
   const events: NormalizedEvent[] = [];
   const parts = content.parts ?? [];
   const baseMs = new Date(baseTimestamp).getTime();
-  let partOffset = 0;
-
-  for (const part of parts) {
-    const partTs = new Date(baseMs + partOffset).toISOString();
+  for (let p = 0; p < parts.length; p++) {
+    const partTs = new Date(baseMs + p + 1).toISOString();
+    const part = parts[p]!;
 
     if (part.text !== undefined) {
       if (content.role === "user") {
@@ -102,7 +101,6 @@ function contentToEvents(
           message: part.text,
           metadata: { content_index: contentIndex },
         });
-        partOffset++;
       }
       continue;
     }
@@ -124,7 +122,6 @@ function contentToEvents(
         event.tool_input = part.functionCall.args;
       }
       events.push(event);
-      partOffset++;
       continue;
     }
 
@@ -164,7 +161,6 @@ function contentToEvents(
       event.tool_result = result;
 
       events.push(event);
-      partOffset++;
     }
   }
 
@@ -259,14 +255,14 @@ export class GeminiCliAdapter implements HarnessAdapter {
       }
       if (!content.role) continue;
 
-      // Offset each content entry by 1ms to preserve ordering
-      const entryTs = new Date(new Date(ts).getTime() + i + 1).toISOString();
+      // Offset each content entry by 1000ms to leave room for per-part offsets within an entry
+      const entryTs = new Date(new Date(ts).getTime() + (i + 1) * 1000).toISOString();
       const normalized = contentToEvents(content, sessionId, entryTs, i);
       events.push(...normalized);
     }
 
     // Synthesize session_end
-    const endTs = new Date(new Date(ts).getTime() + history.length + 1).toISOString();
+    const endTs = new Date(new Date(ts).getTime() + (history.length + 1) * 1000).toISOString();
     events.push({
       id: randomUUID(),
       timestamp: endTs,

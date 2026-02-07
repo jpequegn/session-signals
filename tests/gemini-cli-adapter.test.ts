@@ -271,6 +271,20 @@ describe("GeminiCliAdapter", () => {
       expect(prompts).toHaveLength(1);
     });
 
+    it("skips null and non-object entries in history", () => {
+      const raw = JSON.stringify({ history: [null, 42, "string", userText("valid")] });
+      const warnings: string[] = [];
+      const warnAdapter = new GeminiCliAdapter({
+        eventsDir: "/nonexistent",
+        warn: (msg) => warnings.push(msg),
+      });
+      const events = warnAdapter.parseEvents(raw);
+      const prompts = events.filter((e) => e.type === "user_prompt");
+      expect(prompts).toHaveLength(1);
+      expect(prompts[0]!.message).toBe("valid");
+      expect(warnings.length).toBeGreaterThanOrEqual(2); // null and 42 trigger warnings
+    });
+
     it("does not include tool_input when args is empty", () => {
       const events = adapter.parseEvents(makeSession([modelFunctionCall("read_file", {})]));
       const toolUse = events.filter((e) => e.type === "tool_use")[0]!;
@@ -409,6 +423,24 @@ describe("GeminiCliAdapter", () => {
         const events = await tmpAdapter.getSessionEvents(badId);
         expect(events).toEqual([]);
       }
+    });
+
+    it("returns empty for session file with invalid JSON", async () => {
+      const projectDir = join(tmpDir, "abc123");
+      const chatsDir = join(projectDir, "chats");
+      await mkdir(chatsDir, { recursive: true });
+
+      await writeFile(
+        join(chatsDir, "session-2026-02-05T10-00-deadbeef.json"),
+        "{corrupted json!!!",
+      );
+
+      const warnings: string[] = [];
+      const tmpAdapter = new GeminiCliAdapter({ eventsDir: tmpDir, warn: (msg) => warnings.push(msg) });
+      const events = await tmpAdapter.getSessionEvents("session-2026-02-05T10-00-deadbeef");
+      expect(events).toEqual([]);
+      expect(warnings.length).toBe(1);
+      expect(warnings[0]).toContain("failed to parse");
     });
 
     it("ignores non-session files", async () => {
