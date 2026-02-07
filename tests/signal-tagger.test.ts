@@ -69,10 +69,6 @@ function tsSec(secondOffset: number): string {
   return d.toISOString();
 }
 
-beforeEach(() => {
-  idCounter = 0;
-});
-
 // ── isHookInput ─────────────────────────────────────────────────────
 
 describe("isHookInput", () => {
@@ -212,6 +208,10 @@ describe("resolveScope", () => {
 // ── collectSignals ──────────────────────────────────────────────────
 
 describe("collectSignals", () => {
+  beforeEach(() => {
+    idCounter = 0;
+  });
+
   it("returns empty array for clean session", () => {
     const events = [
       makeEvent({ type: "session_start", timestamp: tsSec(0) }),
@@ -272,6 +272,10 @@ describe("collectSignals", () => {
 // ── buildSignalRecord ───────────────────────────────────────────────
 
 describe("buildSignalRecord", () => {
+  beforeEach(() => {
+    idCounter = 0;
+  });
+
   it("builds a complete SignalRecord", () => {
     const events = [
       makeEvent({ type: "session_start", timestamp: tsSec(0) }),

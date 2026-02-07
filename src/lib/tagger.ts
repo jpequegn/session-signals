@@ -1,5 +1,5 @@
 import { mkdir, appendFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { homedir } from "node:os";
 import { ClaudeCodeAdapter } from "../adapters/claude-code.js";
 import { GeminiCliAdapter } from "../adapters/gemini-cli.js";
@@ -36,9 +36,9 @@ export function isHookInput(obj: unknown): obj is HookInput {
 export function detectHarness(input: HookInput, config: Config): HarnessType | null {
   // If transcript_path hints at the harness, use that
   const tp = input.transcript_path ?? "";
-  if (tp.includes("/.claude/")) return "claude_code";
-  if (tp.includes("/.gemini/")) return "gemini_cli";
-  if (tp.includes("/.pi/")) return "pi_coding_agent";
+  if (tp.includes(`${sep}.claude${sep}`)) return "claude_code";
+  if (tp.includes(`${sep}.gemini${sep}`)) return "gemini_cli";
+  if (tp.includes(`${sep}.pi${sep}`)) return "pi_coding_agent";
 
   // Check environment variables
   if (process.env["CLAUDE_CODE_SESSION"]) return "claude_code";
@@ -88,7 +88,7 @@ export function resolveScope(cwd: string, config: Config): Scope {
   );
 
   for (const paiPath of expandedPaiPaths) {
-    if (cwd === paiPath || cwd.startsWith(paiPath + "/")) return "pai";
+    if (cwd === paiPath || cwd.startsWith(paiPath + sep)) return "pai";
   }
 
   return `project:${cwd}`;
@@ -145,6 +145,9 @@ export function signalsOutputDir(): string {
 
 export function signalsFilePath(date?: string): string {
   const d = date ?? new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    throw new Error(`Invalid date format: expected YYYY-MM-DD, got "${d}"`);
+  }
   return join(signalsOutputDir(), `${d}_signals.jsonl`);
 }
 
