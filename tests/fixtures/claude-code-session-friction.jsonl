@@ -1,0 +1,22 @@
+{"session_id":"sess-friction-001","hook_event_type":"SessionStart","timestamp":"2026-02-05T10:00:00Z","payload":{"cwd":"/home/user/project"}}
+{"session_id":"sess-friction-001","hook_event_type":"UserPromptSubmit","timestamp":"2026-02-05T10:00:10Z","payload":{"message":"Fix the authentication bug in login.ts","cwd":"/home/user/project"}}
+{"session_id":"sess-friction-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T10:00:15Z","payload":{"tool_name":"Read","tool_input":{"file_path":"/home/user/project/src/login.ts"}}}
+{"session_id":"sess-friction-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T10:00:16Z","payload":{"tool_name":"Read","tool_result":{"output":"file contents here","success":true}}}
+{"session_id":"sess-friction-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T10:00:20Z","payload":{"tool_name":"Bash","tool_input":{"command":"npm test"}}}
+{"session_id":"sess-friction-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T10:00:25Z","payload":{"tool_name":"Bash","error":"Test failed: Cannot find module 'jsonwebtoken'"}}
+{"session_id":"sess-friction-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T10:00:30Z","payload":{"tool_name":"Bash","tool_input":{"command":"npm test -- --reporter=verbose"}}}
+{"session_id":"sess-friction-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T10:00:35Z","payload":{"tool_name":"Bash","error":"Test failed: Cannot find module 'jsonwebtoken'"}}
+{"session_id":"sess-friction-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T10:00:40Z","payload":{"tool_name":"Bash","tool_input":{"command":"npx jest --config jest.config.js"}}}
+{"session_id":"sess-friction-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T10:00:45Z","payload":{"tool_name":"Bash","error":"Test failed: Cannot find module 'jsonwebtoken'"}}
+{"session_id":"sess-friction-001","hook_event_type":"UserPromptSubmit","timestamp":"2026-02-05T10:01:00Z","payload":{"message":"Fix the auth bug in login.ts please","cwd":"/home/user/project"}}
+{"session_id":"sess-friction-001","hook_event_type":"UserPromptSubmit","timestamp":"2026-02-05T10:01:30Z","payload":{"message":"Please fix the authentication issue in the login file","cwd":"/home/user/project"}}
+{"session_id":"sess-friction-001","hook_event_type":"UserPromptSubmit","timestamp":"2026-02-05T10:02:00Z","payload":{"message":"Can you fix the login authentication bug","cwd":"/home/user/project"}}
+{"session_id":"sess-friction-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T10:02:10Z","payload":{"tool_name":"Edit","tool_input":{"file_path":"/home/user/project/src/login.ts"}}}
+{"session_id":"sess-friction-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T10:02:11Z","payload":{"tool_name":"Edit","tool_result":{"success":true}}}
+{"session_id":"sess-friction-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T10:02:15Z","payload":{"tool_name":"Bash","tool_input":{"command":"npm test"}}}
+{"session_id":"sess-friction-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T10:02:20Z","payload":{"tool_name":"Bash","error":"Test failed: expected 200 got 401"}}
+{"session_id":"sess-friction-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T10:02:25Z","payload":{"tool_name":"Bash","tool_input":{"command":"npm test"}}}
+{"session_id":"sess-friction-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T10:02:30Z","payload":{"tool_name":"Bash","error":"Test failed: expected 200 got 401"}}
+{"session_id":"sess-friction-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T10:02:35Z","payload":{"tool_name":"Bash","tool_input":{"command":"npm test"}}}
+{"session_id":"sess-friction-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T10:02:40Z","payload":{"tool_name":"Bash","error":"Test failed: expected 200 got 401"}}
+{"session_id":"sess-friction-001","hook_event_type":"SessionEnd","timestamp":"2026-02-05T10:03:00Z","payload":{}}

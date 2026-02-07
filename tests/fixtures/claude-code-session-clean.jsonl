@@ -1,0 +1,12 @@
+{"session_id":"sess-clean-001","hook_event_type":"SessionStart","timestamp":"2026-02-05T14:00:00Z","payload":{"cwd":"/home/user/project"}}
+{"session_id":"sess-clean-001","hook_event_type":"UserPromptSubmit","timestamp":"2026-02-05T14:00:10Z","payload":{"message":"Add a logout button to the navbar","cwd":"/home/user/project"}}
+{"session_id":"sess-clean-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T14:00:15Z","payload":{"tool_name":"Read","tool_input":{"file_path":"/home/user/project/src/components/Navbar.tsx"}}}
+{"session_id":"sess-clean-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T14:00:16Z","payload":{"tool_name":"Read","tool_result":{"output":"navbar contents","success":true}}}
+{"session_id":"sess-clean-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T14:00:20Z","payload":{"tool_name":"Edit","tool_input":{"file_path":"/home/user/project/src/components/Navbar.tsx"}}}
+{"session_id":"sess-clean-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T14:00:21Z","payload":{"tool_name":"Edit","tool_result":{"success":true}}}
+{"session_id":"sess-clean-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T14:00:25Z","payload":{"tool_name":"Bash","tool_input":{"command":"npm test"}}}
+{"session_id":"sess-clean-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T14:00:30Z","payload":{"tool_name":"Bash","tool_result":{"output":"All tests passed","success":true}}}
+{"session_id":"sess-clean-001","hook_event_type":"UserPromptSubmit","timestamp":"2026-02-05T14:00:40Z","payload":{"message":"Looks good, commit it","cwd":"/home/user/project"}}
+{"session_id":"sess-clean-001","hook_event_type":"PreToolUse","timestamp":"2026-02-05T14:00:45Z","payload":{"tool_name":"Bash","tool_input":{"command":"git add -A && git commit -m 'Add logout button'"}}}
+{"session_id":"sess-clean-001","hook_event_type":"PostToolUse","timestamp":"2026-02-05T14:00:50Z","payload":{"tool_name":"Bash","tool_result":{"output":"[main abc123] Add logout button","success":true}}}
+{"session_id":"sess-clean-001","hook_event_type":"SessionEnd","timestamp":"2026-02-05T14:01:00Z","payload":{}}
