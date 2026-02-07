@@ -356,20 +356,6 @@ export async function executeAutofixAction(
         warn(`autofix action: agent failed for pattern ${pattern.id}: ${err}`);
         // Assume commits exist on failure to avoid deleting work
         const hasCommits = await git.hasNewCommits(branchName, originalBranch).catch(() => true);
-        if (!hasCommits) {
-          results.push({
-            pattern_id: pattern.id,
-            action: "skipped",
-            reason: `Agent failed; branch deleted (no commits): ${err}`,
-          });
-        } else {
-          results.push({
-            pattern_id: pattern.id,
-            action: "skipped",
-            branch: branchName,
-            reason: `Agent failed; branch retained (has partial commits): ${err}`,
-          });
-        }
         // Return to original branch before any branch deletion
         let checkedOut = false;
         try {
@@ -380,6 +366,27 @@ export async function executeAutofixAction(
         }
         if (!hasCommits && checkedOut) {
           await git.deleteBranch(branchName).catch(() => {});
+        }
+        if (hasCommits) {
+          results.push({
+            pattern_id: pattern.id,
+            action: "skipped",
+            branch: branchName,
+            reason: `Agent failed; branch retained (has partial commits): ${err}`,
+          });
+        } else if (checkedOut) {
+          results.push({
+            pattern_id: pattern.id,
+            action: "skipped",
+            reason: `Agent failed; branch deleted (no commits): ${err}`,
+          });
+        } else {
+          results.push({
+            pattern_id: pattern.id,
+            action: "skipped",
+            branch: branchName,
+            reason: `Agent failed; branch retained (checkout failed): ${err}`,
+          });
         }
         continue;
       }

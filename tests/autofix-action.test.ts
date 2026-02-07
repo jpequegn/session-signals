@@ -577,7 +577,7 @@ describe("executeAutofixAction", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]!.action).toBe("skipped");
-    expect(results[0]!.reason).toContain("branch deleted");
+    expect(results[0]!.reason).toContain("checkout failed");
     // deleteBranch should NOT be called because checkout failed
     expect(deleted).toHaveLength(0);
     expect(warnings.some((w) => w.includes("failed to return to original branch"))).toBe(true);
