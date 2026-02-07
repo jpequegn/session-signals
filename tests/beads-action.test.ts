@@ -159,6 +159,11 @@ describe("findExistingIssue", () => {
     expect(findExistingIssue(output, "[signals] Shell failures")).toBe("SS-1");
   });
 
+  it("matches when a single trailing space follows the title", () => {
+    const output = "SS-1  [signals] Shell failures ";
+    expect(findExistingIssue(output, "[signals] Shell failures")).toBe("SS-1");
+  });
+
   it("does not skip open issues whose title contains 'closed'", () => {
     const output = "SS-1  [signals] Handle closed connections";
     expect(findExistingIssue(output, "[signals] Handle closed connections")).toBe("SS-1");

@@ -104,7 +104,7 @@ export function findExistingIssue(searchOutput: string, title: string): string |
     // Match title at start of remaining text (after issue ID).
     // Tolerate trailing columns (status, labels, etc.) separated by tab or
     // double-space (bd search uses whitespace-padded columns, not single spaces).
-    if (rest === title) return match[1];
+    if (rest === title || rest.trimEnd() === title) return match[1];
     // 2-char lookahead covers both tab (\t at pos 0) and double-space separators
     if (rest.startsWith(title) && /\t| {2}/.test(rest.slice(title.length, title.length + 2))) return match[1];
   }
@@ -205,11 +205,13 @@ export async function executeBeadsAction(
         });
       }
     } catch (err) {
-      warn(`beads action: failed for pattern ${pattern.id}: ${err}`);
+      const isTimeout = err instanceof Error && "killed" in err && (err as NodeJS.ErrnoException & { killed?: boolean }).killed;
+      const msg = isTimeout ? "bd CLI timed out" : `${err}`;
+      warn(`beads action: failed for pattern ${pattern.id}: ${msg}`);
       results.push({
         pattern_id: pattern.id,
         action: "skipped",
-        reason: `Error: ${err}`,
+        reason: `Error: ${msg}`,
       });
     }
   }
