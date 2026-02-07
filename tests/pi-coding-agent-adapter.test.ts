@@ -12,7 +12,7 @@ function userMessage(id: string, parentId: string | null, content: string, ts?: 
   return { type: "message", id, parentId, timestamp: ts ?? "2026-02-05T10:00:00.000Z", role: "user", content };
 }
 
-function assistantToolCall(id: string, parentId: string, toolName: string, toolInput: Record<string, unknown> = {}, ts?: string): Record<string, unknown> {
+function assistantToolCall(id: string, parentId: string | null, toolName: string, toolInput: Record<string, unknown> = {}, ts?: string): Record<string, unknown> {
   return { type: "message", id, parentId, timestamp: ts ?? "2026-02-05T10:00:01.000Z", role: "assistant", toolName, toolInput };
 }
 
@@ -103,42 +103,42 @@ describe("PiCodingAgentAdapter", () => {
     // ── Tool name mapping ─────────────────────────────────
 
     it("maps read to file_read", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "read")), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "read")), "s");
       expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("file_read");
     });
 
     it("maps write to file_write", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "write")), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "write")), "s");
       expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("file_write");
     });
 
     it("maps edit to file_edit", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "edit")), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "edit")), "s");
       expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("file_edit");
     });
 
     it("maps bash to shell_exec", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "bash")), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "bash")), "s");
       expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("shell_exec");
     });
 
     it("maps grep to file_search", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "grep")), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "grep")), "s");
       expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("file_search");
     });
 
     it("maps find to file_search", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "find")), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "find")), "s");
       expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("file_search");
     });
 
     it("maps ls to file_read", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "ls")), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "ls")), "s");
       expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("file_read");
     });
 
     it("lowercases unknown tool names", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "CustomTool")), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "CustomTool")), "s");
       expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("customtool");
     });
 
@@ -193,6 +193,13 @@ describe("PiCodingAgentAdapter", () => {
       expect(warnings.some((w) => w.includes("invalid entry"))).toBe(true);
     });
 
+    it("handles empty input with only session boundaries", () => {
+      const events = adapter.parseEvents("", "s");
+      expect(events).toHaveLength(2);
+      expect(events[0]!.type).toBe("session_start");
+      expect(events[1]!.type).toBe("session_end");
+    });
+
     it("uses 'unknown' as session_id when not provided", () => {
       const events = adapter.parseEvents(jsonl(userMessage("1", null, "hello")));
       expect(events[0]!.session_id).toBe("unknown");
@@ -222,13 +229,13 @@ describe("PiCodingAgentAdapter", () => {
     });
 
     it("does not include tool_input when empty", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "read", {})), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "read", {})), "s");
       const toolUse = events.filter((e) => e.type === "tool_use")[0]!;
       expect(toolUse.tool_input).toBeUndefined();
     });
 
     it("preserves raw tool name in metadata", () => {
-      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null as unknown as string, "bash")), "s");
+      const events = adapter.parseEvents(jsonl(assistantToolCall("1", null, "bash")), "s");
       const toolUse = events.filter((e) => e.type === "tool_use")[0]!;
       expect(toolUse.metadata?.["raw_tool_name"]).toBe("bash");
     });

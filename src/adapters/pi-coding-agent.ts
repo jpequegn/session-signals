@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { HarnessType, NormalizedEvent } from "../lib/types.js";
 import type { HarnessAdapter } from "./types.js";
 
@@ -38,6 +38,10 @@ function canonicalToolName(raw: string): string {
 
 // ── Entry validation ────────────────────────────────────────────────
 
+function deterministicId(...parts: string[]): string {
+  return createHash("sha256").update(parts.join(":")).digest("hex").slice(0, 32);
+}
+
 function isPiEntry(obj: unknown): obj is PiEntry {
   if (typeof obj !== "object" || obj === null) return false;
   const o = obj as Record<string, unknown>;
@@ -53,7 +57,7 @@ function entryToEvents(entry: PiEntry, sessionId: string): NormalizedEvent[] {
     // User message → user_prompt
     if (entry.role === "user" && entry.content && !entry.toolName) {
       return [{
-        id: randomUUID(),
+        id: deterministicId(sessionId, entry.id, "user_prompt"),
         timestamp: ts,
         harness: "pi_coding_agent",
         type: "user_prompt",
@@ -66,7 +70,7 @@ function entryToEvents(entry: PiEntry, sessionId: string): NormalizedEvent[] {
     // Tool call from assistant
     if (entry.role === "assistant" && entry.toolName) {
       const event: NormalizedEvent = {
-        id: randomUUID(),
+        id: deterministicId(sessionId, entry.id, "tool_use"),
         timestamp: ts,
         harness: "pi_coding_agent",
         type: "tool_use",
@@ -105,7 +109,7 @@ function entryToEvents(entry: PiEntry, sessionId: string): NormalizedEvent[] {
       }
 
       const event: NormalizedEvent = {
-        id: randomUUID(),
+        id: deterministicId(sessionId, entry.id, "tool_result"),
         timestamp: ts,
         harness: "pi_coding_agent",
         type: "tool_result",
@@ -122,7 +126,7 @@ function entryToEvents(entry: PiEntry, sessionId: string): NormalizedEvent[] {
 
   if (entry.type === "compaction") {
     return [{
-      id: randomUUID(),
+      id: deterministicId(sessionId, entry.id, "compaction"),
       timestamp: ts,
       harness: "pi_coding_agent",
       type: "compaction",
@@ -138,7 +142,7 @@ function entryToEvents(entry: PiEntry, sessionId: string): NormalizedEvent[] {
 // ── Session file helpers ────────────────────────────────────────────
 
 /** Walk the tree from root to build a linear event sequence following the main branch. */
-function linearizeEntries(entries: PiEntry[]): PiEntry[] {
+function linearizeEntries(entries: PiEntry[], warn?: (msg: string) => void): PiEntry[] {
   if (entries.length === 0) return [];
 
   // Build child lookup: parentId → children[]
@@ -156,7 +160,10 @@ function linearizeEntries(entries: PiEntry[]): PiEntry[] {
   // Walk from root (parentId: null), always taking the last child (latest branch)
   const result: PiEntry[] = [];
   const roots = childrenOf.get(null);
-  if (!roots || roots.length === 0) return entries; // fallback: return all in order
+  if (!roots || roots.length === 0) {
+    warn?.("pi-coding-agent adapter: no root entries found (parentId: null), returning entries in original order");
+    return entries;
+  }
 
   let current: PiEntry | undefined = roots[roots.length - 1];
   while (current) {
@@ -213,13 +220,13 @@ export class PiCodingAgentAdapter implements HarnessAdapter {
       entries.push(parsed);
     }
 
-    const linear = linearizeEntries(entries);
+    const linear = linearizeEntries(entries, this.warn);
     const events: NormalizedEvent[] = [];
 
     // Synthesize session_start
     const firstTs = linear[0]?.timestamp ?? new Date(0).toISOString();
     events.push({
-      id: randomUUID(),
+      id: deterministicId(sid, "session_start"),
       timestamp: firstTs,
       harness: "pi_coding_agent",
       type: "session_start",
@@ -233,7 +240,7 @@ export class PiCodingAgentAdapter implements HarnessAdapter {
     // Synthesize session_end
     const lastTs = linear[linear.length - 1]?.timestamp ?? firstTs;
     events.push({
-      id: randomUUID(),
+      id: deterministicId(sid, "session_end"),
       timestamp: lastTs,
       harness: "pi_coding_agent",
       type: "session_end",
@@ -283,7 +290,7 @@ export class PiCodingAgentAdapter implements HarnessAdapter {
       for (const entry of entries) {
         if (!entry.isFile() || !entry.name.endsWith(".jsonl")) continue;
         // Filename: <timestamp>_<uuid>.jsonl → sessionId = uuid portion
-        const match = entry.name.match(/^[\d_T-]+_([a-f\d-]+)\.jsonl$/);
+        const match = entry.name.match(/^[\d_T-]+_([a-f\d-]+)\.jsonl$/i);
         if (!match?.[1]) continue;
         files.push({
           path: join(sessionDir, entry.name),
