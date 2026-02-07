@@ -533,28 +533,26 @@ describe("executeAutofixAction", () => {
     expect(results[2]!.action).toBe("fixed");
   });
 
-  it("attempts to return to original branch even on checkout failure after agent", async () => {
-    let checkoutAttempts = 0;
+  it("does not produce duplicate results when checkout fails after agent failure", async () => {
     const git = mockGit({
       createAndCheckoutBranch: async () => {},
-      checkoutBranch: async () => {
-        checkoutAttempts++;
-        // First checkout (return to main after agent) fails
-        if (checkoutAttempts === 1) throw new Error("checkout failed");
-      },
+      checkoutBranch: async () => { throw new Error("checkout failed"); },
+      hasNewCommits: async () => true,
     });
     const agent = mockAgent({
       run: async () => { throw new Error("Agent failed"); },
     });
     const warnings: string[] = [];
 
-    await executeAutofixAction(
+    const results = await executeAutofixAction(
       [makePattern()],
       defaultConfig,
       { git, agent, warn: (msg) => warnings.push(msg) },
     );
 
-    // The outer catch block tries checkout too
-    expect(checkoutAttempts).toBeGreaterThanOrEqual(1);
+    // Only one result per pattern, even when checkout fails
+    expect(results).toHaveLength(1);
+    expect(results[0]!.action).toBe("skipped");
+    expect(warnings.some((w) => w.includes("failed to return to original branch"))).toBe(true);
   });
 });

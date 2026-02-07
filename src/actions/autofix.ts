@@ -216,15 +216,19 @@ export async function cleanupExpiredBranches(
   const results: CleanupResult[] = [];
 
   const branches = await git.listBranches(config.branch_prefix);
+  const currentBranch = await git.currentBranch();
 
   for (const branch of branches) {
     try {
       const ageDays = await git.branchAge(branch);
 
+      if (ageDays === Infinity) {
+        warn(`autofix cleanup: branch ${branch} has unparseable timestamp, treating as expired`);
+      }
+
       if (ageDays >= config.branch_ttl_days) {
-        const originalBranch = await git.currentBranch();
         // Don't delete if we're on this branch
-        if (originalBranch === branch) {
+        if (currentBranch === branch) {
           results.push({
             branch,
             deleted: false,
@@ -366,7 +370,11 @@ export async function executeAutofixAction(
           });
         }
         // Return to original branch before any branch deletion
-        await git.checkoutBranch(originalBranch);
+        try {
+          await git.checkoutBranch(originalBranch);
+        } catch {
+          warn("autofix action: failed to return to original branch after agent failure");
+        }
         if (!hasCommits) {
           await git.deleteBranch(branchName).catch(() => {});
         }
