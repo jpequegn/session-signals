@@ -61,7 +61,7 @@ function extractSessionId(filename: string): string | null {
   if (!filename.startsWith("session-") || !filename.endsWith(".json")) return null;
   const stem = filename.slice(0, -".json".length);
   // Validate the expected pattern exists
-  if (!/^session-[\dT-]+-[a-f\d]+$/.test(stem)) return null;
+  if (!/^session-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-[a-f\d]{8,}$/.test(stem)) return null;
   return stem;
 }
 

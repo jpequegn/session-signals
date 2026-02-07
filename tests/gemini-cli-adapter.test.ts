@@ -348,8 +348,48 @@ describe("GeminiCliAdapter", () => {
       );
 
       const tmpAdapter = new GeminiCliAdapter({ eventsDir: tmpDir, warn: () => {} });
-      const events = await tmpAdapter.getSessionEvents("other-session");
+      const events = await tmpAdapter.getSessionEvents("session-2026-02-05T10-00-aaaaaaaa");
       expect(events).toEqual([]);
+    });
+
+    it("ignores session files with malformed stems", async () => {
+      const projectDir = join(tmpDir, "abc123");
+      const chatsDir = join(projectDir, "chats");
+      await mkdir(chatsDir, { recursive: true });
+
+      // Missing hex suffix
+      await writeFile(
+        join(chatsDir, "session-2026-02-05T10-00.json"),
+        makeSession([userText("no hex")]),
+      );
+      // Hex suffix too short (< 8 chars)
+      await writeFile(
+        join(chatsDir, "session-2026-02-05T10-00-abc.json"),
+        makeSession([userText("short hex")]),
+      );
+      // Uppercase hex (not valid lowercase hex)
+      await writeFile(
+        join(chatsDir, "session-2026-02-05T10-00-DEADBEEF.json"),
+        makeSession([userText("upper hex")]),
+      );
+      // Degenerate timestamp
+      await writeFile(
+        join(chatsDir, "session-T-a.json"),
+        makeSession([userText("degenerate")]),
+      );
+
+      const tmpAdapter = new GeminiCliAdapter({ eventsDir: tmpDir, warn: () => {} });
+
+      // None of these malformed files should be discoverable
+      for (const badId of [
+        "session-2026-02-05T10-00",
+        "session-2026-02-05T10-00-abc",
+        "session-2026-02-05T10-00-DEADBEEF",
+        "session-T-a",
+      ]) {
+        const events = await tmpAdapter.getSessionEvents(badId);
+        expect(events).toEqual([]);
+      }
     });
 
     it("ignores non-session files", async () => {
