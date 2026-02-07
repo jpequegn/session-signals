@@ -235,7 +235,7 @@ export function detectAbandonSignal(
   for (let i = endIndex - 1; i >= 0; i--) {
     const event = events[i]!;
     const gap = timeDiffSeconds(event.timestamp, endTs);
-    if (Number.isNaN(gap)) continue;
+    if (Number.isNaN(gap)) break;
     if (gap > config.abandon_window_seconds) break;
 
     if (event.type === "tool_result" && event.tool_result?.success === false) {

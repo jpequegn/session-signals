@@ -434,6 +434,8 @@ describe("detectRetryLoop", () => {
     const result = detectRetryLoop(events, defaultConfig);
     expect(result).not.toBeNull();
     expect(result!.count).toBe(4);
+    // Verify the captured streak is the second (longer) shell_exec streak, not the first
+    expect(result!.evidence.event_indices.every((i) => events[i]!.tool_name === "shell_exec")).toBe(true);
   });
 
   it("ignores tool uses without tool_input", () => {
@@ -619,18 +621,23 @@ describe("extractFacets", () => {
     expect(facets.session_duration_min).toBe(0);
   });
 
-  it("filters out NaN timestamps when computing duration", () => {
+  it("filters out NaN timestamps when computing duration and tool metrics", () => {
     const events = [
       makeEvent({ type: "session_start", timestamp: tsSec(0) }),
-      makeEvent({ type: "user_prompt", message: "hello", timestamp: "not-a-date" }),
-      makeEvent({ type: "tool_result", tool_result: { success: true }, timestamp: tsSec(10) }),
+      makeEvent({ type: "tool_use", tool_name: "shell_exec", timestamp: tsSec(5) }),
+      makeEvent({ type: "tool_result", tool_name: "shell_exec", tool_result: { success: false }, timestamp: "not-a-date" }),
+      makeEvent({ type: "tool_use", tool_name: "file_read", timestamp: tsSec(20) }),
+      makeEvent({ type: "tool_result", tool_name: "file_read", tool_result: { success: true }, timestamp: tsSec(25) }),
       makeEvent({ type: "session_end", timestamp: tsSec(60) }),
     ];
 
     const facets = extractFacets(events, defaultConfig);
-    // The malformed timestamp should be excluded; duration based on valid timestamps only
+    // Duration based on valid timestamps only
     expect(facets.session_duration_min).toBe(1);
     expect(facets.outcome).toBe("completed");
+    // Tool metrics should still be computed from all tool events regardless of timestamp validity
+    expect(facets.tools_used).toEqual(["file_read", "shell_exec"]);
+    expect(facets.tool_failure_rate).toBe(0.5);
   });
 
   it("collects unique tool names", () => {
