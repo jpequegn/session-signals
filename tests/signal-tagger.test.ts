@@ -71,6 +71,10 @@ function tsSec(secondOffset: number): string {
   return d.toISOString();
 }
 
+beforeEach(() => {
+  idCounter = 0;
+});
+
 // ── isHookInput ─────────────────────────────────────────────────────
 
 describe("isHookInput", () => {
@@ -180,10 +184,11 @@ describe("createAdapter", () => {
     expect(createAdapter("claude_code", config)).toBeNull();
   });
 
-  it("expands ~ in events_dir", () => {
+  it("accepts config with ~/ events_dir without throwing", () => {
     const config = makeConfig();
+    // Note: tilde expansion is resolved at createAdapter time, but the path
+    // is only used when getSessionEvents reads from disk.
     const adapter = createAdapter("claude_code", config);
-    // If it created successfully with ~/ path, expansion worked
     expect(adapter).not.toBeNull();
   });
 });
@@ -210,10 +215,6 @@ describe("resolveScope", () => {
 // ── collectSignals ──────────────────────────────────────────────────
 
 describe("collectSignals", () => {
-  beforeEach(() => {
-    idCounter = 0;
-  });
-
   it("returns empty array for clean session", () => {
     const events = [
       makeEvent({ type: "session_start", timestamp: tsSec(0) }),
@@ -274,10 +275,6 @@ describe("collectSignals", () => {
 // ── buildSignalRecord ───────────────────────────────────────────────
 
 describe("buildSignalRecord", () => {
-  beforeEach(() => {
-    idCounter = 0;
-  });
-
   it("builds a complete SignalRecord", () => {
     const events = [
       makeEvent({ type: "session_start", timestamp: tsSec(0) }),
@@ -353,7 +350,6 @@ describe("writeSignalRecord integration", () => {
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(join(tmpdir(), "tagger-write-"));
-    idCounter = 0;
   });
 
   afterEach(async () => {

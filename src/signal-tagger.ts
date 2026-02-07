@@ -32,8 +32,8 @@ async function main(): Promise<void> {
   if (events.length === 0) return;
 
   const cwdFromEvents = parsed.cwd ?? events.find((e) => e.cwd)?.cwd;
-  if (!cwdFromEvents && process.env["ROBOREV_DEBUG"]) {
-    console.error("[signal-tagger] no cwd in hook input or events, falling back to process.cwd()");
+  if (!cwdFromEvents) {
+    console.error("[signal-tagger] warning: no cwd in hook input or events, falling back to process.cwd()");
   }
   const cwd = cwdFromEvents ?? process.cwd();
   const record = buildSignalRecord(parsed.session_id, events, config, cwd);

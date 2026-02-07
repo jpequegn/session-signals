@@ -45,9 +45,10 @@ export function detectHarness(input: HookInput, config: Config): HarnessType | n
   if (process.env["GEMINI_SESSION"]) return "gemini_cli";
   if (process.env["PI_CODING_AGENT_DIR"]) return "pi_coding_agent";
 
-  // Default to the first enabled harness
-  for (const [key, value] of Object.entries(config.harnesses)) {
-    if (value.enabled) return key as HarnessType;
+  // Default to the first enabled harness (only if it's a known type)
+  const knownHarnesses: HarnessType[] = ["claude_code", "gemini_cli", "pi_coding_agent"];
+  for (const key of knownHarnesses) {
+    if (config.harnesses[key]?.enabled) return key;
   }
 
   return null;
@@ -88,7 +89,7 @@ export function resolveScope(cwd: string, config: Config): Scope {
   );
 
   for (const paiPath of expandedPaiPaths) {
-    if (cwd === paiPath || cwd.startsWith(paiPath + "/")) return "pai";
+    if (cwd === paiPath || cwd.startsWith(paiPath + "/") || cwd.startsWith(paiPath + "\\")) return "pai";
   }
 
   return `project:${cwd}`;
@@ -163,6 +164,9 @@ export async function writeSignalRecord(record: SignalRecord, outputDir?: string
   const dir = outputDir ?? signalsOutputDir();
   await mkdir(dir, { recursive: true });
   const date = record.timestamp.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error(`Invalid timestamp in signal record: "${record.timestamp}"`);
+  }
   const filePath = join(dir, `${date}_signals.jsonl`);
   const line = JSON.stringify(record) + "\n";
   await appendFile(filePath, line, "utf-8");
