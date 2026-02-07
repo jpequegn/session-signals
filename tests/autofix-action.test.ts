@@ -158,6 +158,11 @@ describe("buildFixPrompt", () => {
     // The triple backticks in the description should be stripped
     expect(prompt).not.toContain("``` breakout");
     expect(prompt).toContain("test  breakout");
+    // Directly verify the security invariant: no backticks survive in the fenced content
+    const fenceStart = prompt.indexOf("```\n");
+    const fenceEnd = prompt.indexOf("\n```", fenceStart + 1);
+    const fencedContent = prompt.slice(fenceStart + 4, fenceEnd);
+    expect(fencedContent).not.toMatch(/`/);
   });
 
   it("wraps pattern data in a fenced code block", () => {
