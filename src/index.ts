@@ -36,6 +36,19 @@ export type { PiCodingAgentAdapterOptions } from "./adapters/pi-coding-agent.js"
 
 export { loadConfig } from "./lib/config.js";
 
+export type { HookInput } from "./lib/tagger.js";
+export {
+  isHookInput,
+  detectHarness,
+  createAdapter,
+  resolveScope,
+  collectSignals,
+  buildSignalRecord,
+  signalsOutputDir,
+  signalsFilePath,
+  writeSignalRecord,
+} from "./lib/tagger.js";
+
 export {
   levenshteinRatio,
   detectRephraseStorm,
