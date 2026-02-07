@@ -66,6 +66,18 @@ export {
   runAnalysis,
 } from "./lib/pattern-analyzer.js";
 
+export type { BeadsActionResult, BeadsCli } from "./actions/beads.js";
+export {
+  meetsThreshold,
+  mapPriority,
+  createBeadsCli,
+  buildIssueTitle,
+  findExistingIssue,
+  buildUpdateComment,
+  buildTrendComment,
+  executeBeadsAction,
+} from "./actions/beads.js";
+
 export {
   levenshteinRatio,
   detectRephraseStorm,
