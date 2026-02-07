@@ -93,7 +93,7 @@ export interface SessionFacets {
   languages: string[];
   /** Unique canonical tool names used in the session */
   tools_used: string[];
-  /** Ratio of tool failures to total tool uses (0–1) */
+  /** Ratio of failed tool results to total tool results (0–1) */
   tool_failure_rate: number;
   /** Session length in minutes */
   session_duration_min: number;
