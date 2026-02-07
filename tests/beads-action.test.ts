@@ -148,6 +148,21 @@ describe("findExistingIssue", () => {
     const output = "SS-1  [signals] Shell failures in CI pipeline";
     expect(findExistingIssue(output, "[signals] Shell failures")).toBeNull();
   });
+
+  it("matches when trailing columns follow the title", () => {
+    const output = "SS-1  [signals] Shell failures\topen\t2026-02-07";
+    expect(findExistingIssue(output, "[signals] Shell failures")).toBe("SS-1");
+  });
+
+  it("handles trailing whitespace after title", () => {
+    const output = "SS-1  [signals] Shell failures   ";
+    expect(findExistingIssue(output, "[signals] Shell failures")).toBe("SS-1");
+  });
+
+  it("does not skip open issues whose title contains 'closed'", () => {
+    const output = "SS-1  [signals] Handle closed connections";
+    expect(findExistingIssue(output, "[signals] Handle closed connections")).toBe("SS-1");
+  });
 });
 
 // ── buildUpdateComment / buildTrendComment ──────────────────────────
