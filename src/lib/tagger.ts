@@ -171,6 +171,9 @@ export function signalsFilePath(date?: string): string {
 export async function writeSignalRecord(record: SignalRecord, outputDir?: string): Promise<void> {
   const dir = outputDir ?? signalsOutputDir();
   await mkdir(dir, { recursive: true });
+  if (!record.timestamp.endsWith("Z")) {
+    throw new Error(`Timestamp must be UTC (ending in Z), got: "${record.timestamp}"`);
+  }
   const date = record.timestamp.slice(0, 10);
   if (!isValidDateString(date)) {
     throw new Error(`Invalid timestamp in signal record: "${record.timestamp}"`);

@@ -37,11 +37,11 @@ async function main(): Promise<void> {
   const events = await adapter.getSessionEvents(parsed.session_id);
   if (events.length === 0) return;
 
-  const cwdFromEvents = parsed.cwd ?? events.find((e) => e.cwd)?.cwd;
-  if (!cwdFromEvents) {
-    console.error("[signal-tagger] warning: no cwd in hook input or events, falling back to process.cwd()");
+  const cwd = parsed.cwd ?? events.find((e) => e.cwd)?.cwd;
+  if (!cwd) {
+    console.error("[signal-tagger] warning: no cwd in hook input or events, skipping record");
+    return;
   }
-  const cwd = cwdFromEvents ?? process.cwd();
   const record = buildSignalRecord(parsed.session_id, events, config, cwd);
 
   await writeSignalRecord(record);
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
 
 // Silent failure — never block the coding agent
 main().catch((err) => {
-  if (process.env["ROBOREV_DEBUG"]) {
+  if (process.env["SIGNAL_TAGGER_DEBUG"]) {
     console.error("[signal-tagger]", err);
   }
 });

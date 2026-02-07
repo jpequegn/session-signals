@@ -210,7 +210,7 @@ export interface HarnessConfig {
   events_dir: string;
 }
 
-export type HarnessesConfig = Record<string, HarnessConfig>;
+export type HarnessesConfig = Record<HarnessType, HarnessConfig>;
 
 export interface ScopeRulesConfig {
   pai_paths: string[];

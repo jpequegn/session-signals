@@ -108,6 +108,22 @@ describe("isHookInput", () => {
 
 describe("detectHarness", () => {
   const config = makeConfig();
+  const harnessEnvVars = ["CLAUDE_CODE_SESSION", "GEMINI_SESSION", "PI_CODING_AGENT_DIR"] as const;
+  const savedEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const key of harnessEnvVars) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const key of harnessEnvVars) {
+      if (savedEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = savedEnv[key];
+    }
+  });
 
   it("detects claude_code from transcript_path", () => {
     expect(detectHarness({ session_id: "s", transcript_path: "/home/user/.claude/history/abc.jsonl" }, config)).toBe("claude_code");
@@ -122,22 +138,16 @@ describe("detectHarness", () => {
   });
 
   it("detects claude_code from CLAUDE_CODE_SESSION env var", () => {
-    const prev = process.env["CLAUDE_CODE_SESSION"];
-    try {
-      process.env["CLAUDE_CODE_SESSION"] = "some-session";
-      const noHarness = makeConfig({
-        harnesses: {
-          claude_code: { enabled: false, events_dir: "" },
-          gemini_cli: { enabled: false, events_dir: "" },
-          pi_coding_agent: { enabled: false, events_dir: "" },
-        },
-      });
-      // No transcript_path, no enabled harnesses — env var is the only signal
-      expect(detectHarness({ session_id: "s" }, noHarness)).toBe("claude_code");
-    } finally {
-      if (prev === undefined) delete process.env["CLAUDE_CODE_SESSION"];
-      else process.env["CLAUDE_CODE_SESSION"] = prev;
-    }
+    process.env["CLAUDE_CODE_SESSION"] = "some-session";
+    const noHarness = makeConfig({
+      harnesses: {
+        claude_code: { enabled: false, events_dir: "" },
+        gemini_cli: { enabled: false, events_dir: "" },
+        pi_coding_agent: { enabled: false, events_dir: "" },
+      },
+    });
+    // No transcript_path, no enabled harnesses — env var is the only signal
+    expect(detectHarness({ session_id: "s" }, noHarness)).toBe("claude_code");
   });
 
   it("falls back to first enabled harness", () => {
@@ -223,6 +233,11 @@ describe("resolveEventsDir", () => {
 
   it("returns absolute paths unchanged", () => {
     expect(resolveEventsDir("/absolute/path")).toBe("/absolute/path");
+  });
+
+  it("returns relative paths unchanged (caller responsibility)", () => {
+    expect(resolveEventsDir("relative/path")).toBe("relative/path");
+    expect(resolveEventsDir("./events")).toBe("./events");
   });
 });
 
