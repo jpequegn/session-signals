@@ -8,8 +8,12 @@ import { createOllamaClient } from "./lib/ollama-client.js";
 import { runAnalysis } from "./lib/pattern-analyzer.js";
 
 async function main(): Promise<void> {
-  // Ensure the log directory exists — launchd redirects stdout/stderr here
-  // but the dir may have been removed since install time.
+  // Belt-and-suspenders: recreate the log directory if it was deleted after
+  // install. Note that launchd sets up stdout/stderr file descriptors *before*
+  // the process starts, so if the directory is missing at launch time the
+  // redirects will already have failed. This only helps when launchd manages
+  // to start the process despite the missing directory (observed on some macOS
+  // versions). The install script is the primary creator of this directory.
   mkdirSync(join(homedir(), "Library", "Logs", "session-signals"), { recursive: true });
 
   const config = await loadConfig();

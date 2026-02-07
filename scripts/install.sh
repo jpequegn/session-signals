@@ -110,7 +110,9 @@ setup_hook() {
     info "Created $SETTINGS_FILE"
   fi
 
-  # Use bun to safely merge the hook entry (non-destructive)
+  # Use bun to safely merge the hook entry (non-destructive).
+  # Note: no advisory lock is taken — avoid running install while Claude Code
+  # is actively writing to settings.json, or changes may be lost.
   SETTINGS_PATH="$SETTINGS_FILE" HOOK_CMD="$hook_command" bun -e "
     const fs = require('fs');
     const path = process.env.SETTINGS_PATH;
@@ -170,6 +172,17 @@ xml_escape() {
   printf '%s' "$s"
 }
 
+# Reject paths containing shell metacharacters that would be misinterpreted
+# inside the unquoted heredoc used for plist generation.
+validate_path() {
+  local p="$1"
+  local label="$2"
+  if [[ "$p" == *'$'* || "$p" == *'`'* ]]; then
+    error "$label contains shell metacharacters (\$ or \`): $p"
+    exit 1
+  fi
+}
+
 # ── launchd plist ────────────────────────────────────────────────────
 
 setup_launchd() {
@@ -180,6 +193,11 @@ setup_launchd() {
   mkdir -p "$log_dir"
   local log_path="$log_dir/session-signals.log"
   local error_log_path="$log_dir/session-signals-error.log"
+
+  validate_path "$bun_path" "bun path"
+  validate_path "$analyzer_path" "analyzer path"
+  validate_path "$log_dir" "log directory"
+  validate_path "$PROJECT_DIR" "project directory"
 
   mkdir -p "$PLIST_DIR"
 
@@ -225,6 +243,9 @@ PLIST
 
   launchctl bootstrap "$domain" "$PLIST_FILE"
   info "launchd plist installed and loaded."
+  # Note: if the machine is asleep at midnight, launchd will run the job on
+  # wake — but only the next scheduled occurrence, not missed ones. Missing a
+  # day of analysis is acceptable for this use case.
   info "Daily analysis will run at midnight."
 }
 

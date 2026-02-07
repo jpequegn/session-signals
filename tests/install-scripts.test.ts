@@ -21,7 +21,9 @@ afterEach(async () => {
 });
 
 // Run a bun script in the test directory to simulate the JSON manipulation
-// that install.sh and uninstall.sh perform
+// that install.sh and uninstall.sh perform.
+// NOTE: These inline scripts duplicate logic from the shell scripts. If the
+// real scripts change, update these tests to match to avoid drift.
 async function runBunScript(script: string, env: Record<string, string> = {}): Promise<string> {
   const { stdout } = await execFileAsync("bun", ["-e", script], {
     timeout: 10_000,

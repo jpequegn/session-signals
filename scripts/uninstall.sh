@@ -77,6 +77,8 @@ remove_hook() {
     return
   fi
 
+  # Note: no advisory lock is taken — avoid running uninstall while Claude Code
+  # is actively writing to settings.json, or changes may be lost.
   SETTINGS_PATH="$SETTINGS_FILE" HOOK_FILTER="signal-tagger" bun -e "
     const fs = require('fs');
     const path = process.env.SETTINGS_PATH;
@@ -135,6 +137,11 @@ purge_data() {
     info "Purged signal history data."
   fi
 
+}
+
+# ── Remove log directory ─────────────────────────────────────────────
+
+remove_logs() {
   local log_dir="$HOME/Library/Logs/session-signals"
   if [[ -d "$log_dir" ]]; then
     rm -rf "$log_dir"
@@ -151,6 +158,7 @@ main() {
   remove_launchd
   remove_symlink
   remove_hook
+  remove_logs
   purge_data
 
   echo ""
