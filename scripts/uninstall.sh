@@ -76,9 +76,10 @@ remove_hook() {
     return
   fi
 
-  SETTINGS_PATH="$SETTINGS_FILE" bun -e "
+  SETTINGS_PATH="$SETTINGS_FILE" HOOK_FILTER="signal-tagger" bun -e "
     const fs = require('fs');
     const path = process.env.SETTINGS_PATH;
+    const hookFilter = process.env.HOOK_FILTER;
 
     let settings;
     try {
@@ -95,12 +96,12 @@ remove_hook() {
 
     const before = settings.hooks.SessionEnd.length;
     settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
-      (entry) => !entry.hooks?.some((h) => h.command?.includes('signal-tagger'))
+      (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
     );
     const after = settings.hooks.SessionEnd.length;
 
     if (before === after) {
-      console.log('[uninstall] No signal-tagger hook found in SessionEnd.');
+      console.log('[uninstall] No ' + hookFilter + ' hook found in SessionEnd.');
       process.exit(0);
     }
 
@@ -113,7 +114,7 @@ remove_hook() {
     }
 
     fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
-    console.log('[uninstall] Removed signal-tagger hook from settings.json');
+    console.log('[uninstall] Removed ' + hookFilter + ' hook from settings.json');
   "
 }
 
