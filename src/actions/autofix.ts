@@ -99,8 +99,9 @@ export function createGitOps(cwd?: string): GitOps {
         cwd,
       );
       const commitEpoch = parseInt(timestamp, 10);
-      // Unparseable timestamp → Infinity so cleanup treats it as expired
-      if (isNaN(commitEpoch)) return Infinity;
+      // Unparseable timestamp → MAX_SAFE_INTEGER so cleanup treats it as expired
+      // (avoids Infinity which serializes to null in JSON)
+      if (isNaN(commitEpoch)) return Number.MAX_SAFE_INTEGER;
       const nowEpoch = Math.floor((now ?? new Date()).getTime() / 1000);
       return Math.floor((nowEpoch - commitEpoch) / 86400);
     },
@@ -156,12 +157,13 @@ export function meetsAutoFixThreshold(
 // ── Fix prompt builder ──────────────────────────────────────────────
 
 // Trust boundary: pattern fields are interpolated into the agent prompt.
-// Backticks are stripped to prevent breaking out of the fenced code block.
+// Backticks are replaced with single quotes to prevent breaking out of the
+// fenced code block while preserving readability (e.g. `foo` becomes 'foo').
 // Callers should still ensure pattern data comes from trusted sources
 // (e.g. local analysis), not from untrusted external input.
 
 function sanitizeForFence(value: string): string {
-  return value.replace(/`/g, "");
+  return value.replace(/`/g, "'");
 }
 
 export function buildFixPrompt(pattern: Pattern): string {
@@ -231,7 +233,7 @@ export async function cleanupExpiredBranches(
     try {
       const ageDays = await git.branchAge(branch);
 
-      if (ageDays === Infinity) {
+      if (ageDays === Number.MAX_SAFE_INTEGER) {
         warn(`autofix cleanup: branch ${branch} has unparseable timestamp, treating as expired`);
       }
 
@@ -399,6 +401,7 @@ export async function executeAutofixAction(
             reason: `Agent failed; branch retained (checkout failed): ${err}`,
           });
         }
+        // Checkout already handled above; skip the post-success checkout below
         continue;
       }
 
