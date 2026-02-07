@@ -154,7 +154,7 @@ describe("findExistingIssue", () => {
     expect(findExistingIssue(output, "[signals] Shell failures")).toBe("SS-1");
   });
 
-  it("handles trailing whitespace after title", () => {
+  it("matches when trailing whitespace follows the title (exact match after trim)", () => {
     const output = "SS-1  [signals] Shell failures   ";
     expect(findExistingIssue(output, "[signals] Shell failures")).toBe("SS-1");
   });
@@ -162,6 +162,11 @@ describe("findExistingIssue", () => {
   it("does not skip open issues whose title contains 'closed'", () => {
     const output = "SS-1  [signals] Handle closed connections";
     expect(findExistingIssue(output, "[signals] Handle closed connections")).toBe("SS-1");
+  });
+
+  it("skips closed issues with status immediately after ID (single-line)", () => {
+    const output = "SS-1  closed  [signals] Shell failures";
+    expect(findExistingIssue(output, "[signals] Shell failures")).toBeNull();
   });
 });
 

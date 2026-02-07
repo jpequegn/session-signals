@@ -105,6 +105,7 @@ export function findExistingIssue(searchOutput: string, title: string): string |
     // Tolerate trailing columns (status, labels, etc.) separated by tab or
     // double-space (bd search uses whitespace-padded columns, not single spaces).
     if (rest === title) return match[1];
+    // 2-char lookahead covers both tab (\t at pos 0) and double-space separators
     if (rest.startsWith(title) && /\t| {2}/.test(rest.slice(title.length, title.length + 2))) return match[1];
   }
 
