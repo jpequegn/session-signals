@@ -27,7 +27,7 @@ export interface GitOps {
   currentBranch(): Promise<string>;
   branchExists(name: string): Promise<boolean>;
   listBranches(prefix: string): Promise<string[]>;
-  createBranch(name: string): Promise<void>;
+  createAndCheckoutBranch(name: string): Promise<void>;
   checkoutBranch(name: string): Promise<void>;
   deleteBranch(name: string): Promise<void>;
   branchAge(name: string): Promise<number>;
@@ -80,7 +80,7 @@ export function createGitOps(cwd?: string): GitOps {
       }
     },
 
-    async createBranch(name: string): Promise<void> {
+    async createAndCheckoutBranch(name: string): Promise<void> {
       await runGit(["checkout", "-b", name], cwd);
     },
 
@@ -98,7 +98,7 @@ export function createGitOps(cwd?: string): GitOps {
         cwd,
       );
       const commitEpoch = parseInt(timestamp, 10);
-      if (isNaN(commitEpoch)) return 0;
+      if (isNaN(commitEpoch)) return Infinity;
       const nowEpoch = Math.floor(Date.now() / 1000);
       return Math.floor((nowEpoch - commitEpoch) / 86400);
     },
@@ -144,6 +144,9 @@ export function meetsAutoFixThreshold(
 
 // ── Fix prompt builder ──────────────────────────────────────────────
 
+// Trust boundary: pattern fields are interpolated into the agent prompt.
+// Callers must ensure pattern data comes from trusted sources (e.g. local
+// analysis), not from untrusted external input that could inject instructions.
 export function buildFixPrompt(pattern: Pattern): string {
   const lines = [
     "You are fixing a detected friction pattern in this codebase.",
@@ -244,7 +247,7 @@ export async function executeAutofixAction(
     git?: GitOps;
     agent?: AgentRunner;
     warn?: (msg: string) => void;
-    maxPerDay?: number;
+    maxPerRun?: number;
   },
 ): Promise<AutofixResult[]> {
   if (!config.enabled) return [];
@@ -252,7 +255,7 @@ export async function executeAutofixAction(
   const git = options?.git ?? createGitOps();
   const agent = options?.agent ?? createAgentRunner();
   const warn = options?.warn ?? console.warn;
-  const maxPerDay = options?.maxPerDay ?? 3;
+  const maxPerRun = options?.maxPerRun ?? 3;
   const results: AutofixResult[] = [];
 
   // Safety: skip if working tree is dirty
@@ -290,11 +293,11 @@ export async function executeAutofixAction(
       continue;
     }
 
-    if (fixCount >= maxPerDay) {
+    if (fixCount >= maxPerRun) {
       results.push({
         pattern_id: pattern.id,
         action: "skipped",
-        reason: `Daily limit reached (${maxPerDay})`,
+        reason: `Run limit reached (${maxPerRun})`,
       });
       continue;
     }
@@ -314,8 +317,8 @@ export async function executeAutofixAction(
     }
 
     try {
-      // Create branch and run agent
-      await git.createBranch(branchName);
+      // Create and switch to fix branch, then run agent
+      await git.createAndCheckoutBranch(branchName);
       const prompt = buildFixPrompt(pattern);
 
       try {
@@ -332,7 +335,7 @@ export async function executeAutofixAction(
           pattern_id: pattern.id,
           action: "skipped",
           branch: branchName,
-          reason: `Agent error: ${err}`,
+          reason: `Agent failed; branch retained to prevent retries: ${err}`,
         });
       }
 

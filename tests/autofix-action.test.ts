@@ -44,7 +44,7 @@ function mockGit(overrides?: Partial<GitOps>): GitOps {
     currentBranch: async () => "main",
     branchExists: async () => false,
     listBranches: async () => [],
-    createBranch: async () => {},
+    createAndCheckoutBranch: async () => {},
     checkoutBranch: async () => {},
     deleteBranch: async () => {},
     branchAge: async () => 0,
@@ -332,7 +332,7 @@ describe("executeAutofixAction", () => {
     let checkedOutBranches: string[] = [];
 
     const git = mockGit({
-      createBranch: async (name) => { createdBranch = name; },
+      createAndCheckoutBranch: async (name) => { createdBranch = name; },
       checkoutBranch: async (name) => { checkedOutBranches.push(name); },
     });
 
@@ -359,10 +359,10 @@ describe("executeAutofixAction", () => {
     expect(checkedOutBranches).toContain("main");
   });
 
-  it("enforces daily limit", async () => {
+  it("enforces run limit", async () => {
     const created: string[] = [];
     const git = mockGit({
-      createBranch: async (name) => { created.push(name); },
+      createAndCheckoutBranch: async (name) => { created.push(name); },
     });
     const agent = mockAgent();
 
@@ -376,20 +376,20 @@ describe("executeAutofixAction", () => {
     const results = await executeAutofixAction(patterns, defaultConfig, {
       git,
       agent,
-      maxPerDay: 2,
+      maxPerRun: 2,
     });
 
     expect(results).toHaveLength(4);
     const fixed = results.filter((r) => r.action === "fixed");
-    const limited = results.filter((r) => r.reason?.includes("Daily limit"));
+    const limited = results.filter((r) => r.reason?.includes("Run limit"));
     expect(fixed).toHaveLength(2);
     expect(limited).toHaveLength(2);
   });
 
-  it("defaults to max 3 per day", async () => {
+  it("defaults to max 3 per run", async () => {
     const created: string[] = [];
     const git = mockGit({
-      createBranch: async (name) => { created.push(name); },
+      createAndCheckoutBranch: async (name) => { created.push(name); },
     });
     const agent = mockAgent();
 
@@ -407,7 +407,7 @@ describe("executeAutofixAction", () => {
     });
 
     const fixed = results.filter((r) => r.action === "fixed");
-    const limited = results.filter((r) => r.reason?.includes("Daily limit"));
+    const limited = results.filter((r) => r.reason?.includes("Run limit"));
     expect(fixed).toHaveLength(3);
     expect(limited).toHaveLength(2);
   });
@@ -430,16 +430,16 @@ describe("executeAutofixAction", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]!.action).toBe("skipped");
-    expect(results[0]!.reason).toContain("Agent error");
+    expect(results[0]!.reason).toContain("Agent failed");
     expect(results[0]!.branch).toBeDefined();
     expect(warnings.length).toBeGreaterThan(0);
     // Still returns to original branch
     expect(checkedOut).toContain("main");
   });
 
-  it("handles git createBranch failure gracefully", async () => {
+  it("handles git createAndCheckoutBranch failure gracefully", async () => {
     const git = mockGit({
-      createBranch: async () => { throw new Error("Git failed"); },
+      createAndCheckoutBranch: async () => { throw new Error("Git failed"); },
     });
     const warnings: string[] = [];
 
@@ -473,7 +473,7 @@ describe("executeAutofixAction", () => {
     expect(results[2]!.action).toBe("fixed");
   });
 
-  it("does not count skipped patterns toward daily limit", async () => {
+  it("does not count skipped patterns toward run limit", async () => {
     const git = mockGit();
     const agent = mockAgent();
 
@@ -486,7 +486,7 @@ describe("executeAutofixAction", () => {
     const results = await executeAutofixAction(patterns, defaultConfig, {
       git,
       agent,
-      maxPerDay: 2,
+      maxPerRun: 2,
     });
 
     expect(results[0]!.action).toBe("skipped");
@@ -498,7 +498,7 @@ describe("executeAutofixAction", () => {
   it("attempts to return to original branch even on checkout failure after agent", async () => {
     let checkoutAttempts = 0;
     const git = mockGit({
-      createBranch: async () => {},
+      createAndCheckoutBranch: async () => {},
       checkoutBranch: async () => {
         checkoutAttempts++;
         // First checkout (return to main after agent) fails
