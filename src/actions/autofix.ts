@@ -30,7 +30,7 @@ export interface GitOps {
   createAndCheckoutBranch(name: string): Promise<void>;
   checkoutBranch(name: string): Promise<void>;
   deleteBranch(name: string): Promise<void>;
-  branchAge(name: string): Promise<number>;
+  branchAge(name: string, now?: Date): Promise<number>;
   hasNewCommits(branch: string, base: string): Promise<boolean>;
 }
 
@@ -93,7 +93,7 @@ export function createGitOps(cwd?: string): GitOps {
       await runGit(["branch", "-D", name], cwd);
     },
 
-    async branchAge(name: string): Promise<number> {
+    async branchAge(name: string, now?: Date): Promise<number> {
       const timestamp = await runGit(
         ["log", "-1", "--format=%ct", name],
         cwd,
@@ -101,7 +101,7 @@ export function createGitOps(cwd?: string): GitOps {
       const commitEpoch = parseInt(timestamp, 10);
       // Unparseable timestamp → Infinity so cleanup treats it as expired
       if (isNaN(commitEpoch)) return Infinity;
-      const nowEpoch = Math.floor(Date.now() / 1000);
+      const nowEpoch = Math.floor((now ?? new Date()).getTime() / 1000);
       return Math.floor((nowEpoch - commitEpoch) / 86400);
     },
 
@@ -115,7 +115,8 @@ export function createGitOps(cwd?: string): GitOps {
   };
 }
 
-export function createAgentRunner(): AgentRunner {
+export function createAgentRunner(options?: { timeout?: number }): AgentRunner {
+  const timeout = options?.timeout ?? 300_000;
   return {
     async isAvailable(): Promise<boolean> {
       try {
@@ -128,7 +129,7 @@ export function createAgentRunner(): AgentRunner {
 
     async run(prompt: string, allowedTools: string[], cwd: string): Promise<void> {
       const args = ["-p", prompt, "--allowedTools", allowedTools.join(",")];
-      await execFileAsync("claude", args, { cwd, timeout: 300_000 });
+      await execFileAsync("claude", args, { cwd, timeout });
     },
   };
 }
@@ -155,10 +156,14 @@ export function meetsAutoFixThreshold(
 // ── Fix prompt builder ──────────────────────────────────────────────
 
 // Trust boundary: pattern fields are interpolated into the agent prompt.
-// Fenced code blocks reduce but do not eliminate injection risk (a field
-// containing triple-backticks can break out). Callers must ensure pattern
-// data comes from trusted sources (e.g. local analysis), not from untrusted
-// external input.
+// Backticks are escaped to prevent breaking out of the fenced code block.
+// Callers should still ensure pattern data comes from trusted sources
+// (e.g. local analysis), not from untrusted external input.
+
+function sanitizeForFence(value: string): string {
+  return value.replace(/`/g, "\\`");
+}
+
 export function buildFixPrompt(pattern: Pattern): string {
   const lines = [
     "You are fixing a detected friction pattern in this codebase.",
@@ -166,21 +171,21 @@ export function buildFixPrompt(pattern: Pattern): string {
     "## Pattern Details",
     "",
     "```",
-    `Description: ${pattern.description}`,
-    `Type: ${pattern.type}`,
-    `Severity: ${pattern.severity}`,
+    `Description: ${sanitizeForFence(pattern.description)}`,
+    `Type: ${sanitizeForFence(pattern.type)}`,
+    `Severity: ${sanitizeForFence(pattern.severity)}`,
     `Frequency: ${pattern.frequency} sessions affected`,
-    `Trend: ${pattern.trend}`,
+    `Trend: ${sanitizeForFence(pattern.trend)}`,
   ];
 
   if (pattern.root_cause_hypothesis) {
-    lines.push(`Root cause hypothesis: ${pattern.root_cause_hypothesis}`);
+    lines.push(`Root cause hypothesis: ${sanitizeForFence(pattern.root_cause_hypothesis)}`);
   }
   if (pattern.suggested_fix) {
-    lines.push(`Suggested fix: ${pattern.suggested_fix}`);
+    lines.push(`Suggested fix: ${sanitizeForFence(pattern.suggested_fix)}`);
   }
   if (pattern.affected_files.length > 0) {
-    lines.push(`Affected files: ${pattern.affected_files.join(", ")}`);
+    lines.push(`Affected files: ${pattern.affected_files.map(sanitizeForFence).join(", ")}`);
   }
 
   lines.push("```");
@@ -209,9 +214,10 @@ export async function cleanupExpiredBranches(
   options?: {
     git?: GitOps;
     warn?: (msg: string) => void;
+    cwd?: string;
   },
 ): Promise<CleanupResult[]> {
-  const git = options?.git ?? createGitOps();
+  const git = options?.git ?? createGitOps(options?.cwd);
   const warn = options?.warn ?? console.warn;
   const results: CleanupResult[] = [];
 
@@ -355,7 +361,10 @@ export async function executeAutofixAction(
       } catch (err) {
         warn(`autofix action: agent failed for pattern ${pattern.id}: ${err}`);
         // Assume commits exist on failure to avoid deleting work
-        const hasCommits = await git.hasNewCommits(branchName, originalBranch).catch(() => true);
+        const hasCommits = await git.hasNewCommits(branchName, originalBranch).catch((e) => {
+          warn(`autofix action: hasNewCommits failed, assuming commits exist to preserve work: ${e}`);
+          return true;
+        });
         // Return to original branch before any branch deletion
         let checkedOut = false;
         try {
