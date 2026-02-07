@@ -35,3 +35,17 @@ export { PiCodingAgentAdapter } from "./adapters/pi-coding-agent.js";
 export type { PiCodingAgentAdapterOptions } from "./adapters/pi-coding-agent.js";
 
 export { loadConfig } from "./lib/config.js";
+
+export {
+  levenshteinRatio,
+  detectRephraseStorm,
+  detectToolFailureCascade,
+  detectContextChurn,
+  detectPermissionFriction,
+  detectAbandonSignal,
+  detectLongStall,
+  detectRetryLoop,
+  inferLanguages,
+  classifyOutcome,
+  extractFacets,
+} from "./lib/heuristics.js";
