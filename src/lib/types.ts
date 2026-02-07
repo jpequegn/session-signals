@@ -1,6 +1,7 @@
 // ── Harness identification ──────────────────────────────────────────
 
-export type HarnessType = "claude_code" | "gemini_cli" | "pi_coding_agent";
+export const HARNESS_TYPES = ["claude_code", "gemini_cli", "pi_coding_agent"] as const;
+export type HarnessType = (typeof HARNESS_TYPES)[number];
 
 // ── Normalized events ──────────────────────────────────────────────
 
@@ -209,7 +210,7 @@ export interface HarnessConfig {
   events_dir: string;
 }
 
-export type HarnessesConfig = Record<string, HarnessConfig>;
+export type HarnessesConfig = Record<HarnessType, HarnessConfig>;
 
 export interface ScopeRulesConfig {
   pai_paths: string[];

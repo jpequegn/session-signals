@@ -1,3 +1,4 @@
+export { HARNESS_TYPES } from "./lib/types.js";
 export type {
   HarnessType,
   NormalizedEventType,
@@ -35,6 +36,20 @@ export { PiCodingAgentAdapter } from "./adapters/pi-coding-agent.js";
 export type { PiCodingAgentAdapterOptions } from "./adapters/pi-coding-agent.js";
 
 export { loadConfig } from "./lib/config.js";
+
+export type { HookInput } from "./lib/tagger.js";
+export {
+  isHookInput,
+  detectHarness,
+  createAdapter,
+  resolveScope,
+  resolveEventsDir,
+  collectSignals,
+  buildSignalRecord,
+  signalsOutputDir,
+  signalsFilePath,
+  writeSignalRecord,
+} from "./lib/tagger.js";
 
 export {
   levenshteinRatio,
