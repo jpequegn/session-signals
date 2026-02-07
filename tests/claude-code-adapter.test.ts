@@ -95,6 +95,13 @@ describe("ClaudeCodeAdapter", () => {
       expect(events[0]!.type).toBe("session_end");
     });
 
+    it("parses SubagentStop event as session_end", () => {
+      const raw = jsonl(makeEvent({ hook_event_type: "SubagentStop", payload: {} }));
+      const events = adapter.parseEvents(raw);
+      expect(events).toHaveLength(1);
+      expect(events[0]!.type).toBe("session_end");
+    });
+
     it("parses compaction Notification", () => {
       const raw = jsonl(makeEvent({
         hook_event_type: "Notification",

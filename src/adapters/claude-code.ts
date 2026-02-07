@@ -105,26 +105,27 @@ function extractToolInput(event: ClaudeCodeRawEvent): Record<string, unknown> | 
 
 function extractToolResult(event: ClaudeCodeRawEvent): NormalizedEvent["tool_result"] {
   const payload = event.payload;
-  if (!payload) return undefined;
 
-  const result = payload["tool_result"];
-  if (typeof result === "object" && result !== null) {
-    const r = result as Record<string, unknown>;
-    const out: { success: boolean; output?: string; error?: string } = {
-      success: r["success"] !== false && r["error"] === undefined,
-    };
-    if (typeof r["output"] === "string") out.output = r["output"];
-    if (typeof r["error"] === "string") out.error = r["error"];
-    return out;
+  if (payload) {
+    const result = payload["tool_result"];
+    if (typeof result === "object" && result !== null) {
+      const r = result as Record<string, unknown>;
+      const out: { success: boolean; output?: string; error?: string } = {
+        success: r["success"] === true && r["error"] === undefined,
+      };
+      if (typeof r["output"] === "string") out.output = r["output"];
+      if (typeof r["error"] === "string") out.error = r["error"];
+      return out;
+    }
+
+    // PostToolUse may have an error string directly
+    const error = payload["error"] as string | undefined;
+    if (error) {
+      return { success: false, error };
+    }
   }
 
-  // PostToolUse may have an error string directly
-  const error = payload["error"] as string | undefined;
-  if (error) {
-    return { success: false, error };
-  }
-
-  // PostToolUse with no error means success
+  // PostToolUse with no error/result (regardless of payload presence) means success
   if (event.hook_event_type === "PostToolUse") {
     return { success: true };
   }
@@ -180,9 +181,7 @@ function rawToNormalized(raw: ClaudeCodeRawEvent): NormalizedEvent | null {
   const cwd = extractCwd(raw);
   if (cwd) event.cwd = cwd;
 
-  if (raw.payload) {
-    event.metadata = { hook_event_type: raw.hook_event_type, source_app: raw.source_app };
-  }
+  event.metadata = { hook_event_type: raw.hook_event_type, source_app: raw.source_app };
 
   return event;
 }
@@ -241,9 +240,17 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
     const allEvents: NormalizedEvent[] = [];
     const jsonlFiles = await this.findJsonlFiles();
 
-    for (const file of jsonlFiles) {
-      const raw = await readFile(file, "utf-8");
-      const events = this.parseEvents(raw);
+    const results = await Promise.allSettled(
+      jsonlFiles.map((file) => readFile(file, "utf-8")),
+    );
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]!;
+      if (result.status === "rejected") {
+        this.warn(`claude-code adapter: failed to read ${jsonlFiles[i]}: ${result.reason}`);
+        continue;
+      }
+      const events = this.parseEvents(result.value);
       for (const event of events) {
         if (event.session_id === sessionId) {
           allEvents.push(event);
@@ -251,30 +258,31 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
       }
     }
 
-    return allEvents.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    return allEvents.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
   }
 
   private async findJsonlFiles(): Promise<string[]> {
     const files: string[] = [];
 
-    let months: string[];
+    let topEntries: import("node:fs").Dirent[];
     try {
-      months = await readdir(this.eventsDir);
+      topEntries = await readdir(this.eventsDir, { withFileTypes: true });
     } catch {
       return files;
     }
 
-    for (const month of months) {
-      const monthDir = join(this.eventsDir, month);
-      let entries: string[];
+    for (const topEntry of topEntries) {
+      if (!topEntry.isDirectory()) continue;
+      const monthDir = join(this.eventsDir, topEntry.name);
+      let entries: import("node:fs").Dirent[];
       try {
-        entries = await readdir(monthDir);
+        entries = await readdir(monthDir, { withFileTypes: true });
       } catch {
         continue;
       }
       for (const entry of entries) {
-        if (entry.endsWith("_all-events.jsonl")) {
-          files.push(join(monthDir, entry));
+        if (entry.isFile() && entry.name.endsWith("_all-events.jsonl")) {
+          files.push(join(monthDir, entry.name));
         }
       }
     }
