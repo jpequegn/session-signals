@@ -198,6 +198,7 @@ describe("hook removal", () => {
       const hookFilter = process.env.HOOK_FILTER;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
+      if (!settings.hooks?.SessionEnd) process.exit(0);
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
         (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
@@ -230,6 +231,7 @@ describe("hook removal", () => {
       const hookFilter = process.env.HOOK_FILTER;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
+      if (!settings.hooks?.SessionEnd) process.exit(0);
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
         (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
@@ -264,6 +266,7 @@ describe("hook removal", () => {
       const hookFilter = process.env.HOOK_FILTER;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
+      if (!settings.hooks?.SessionEnd) process.exit(0);
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
         (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
@@ -296,6 +299,7 @@ describe("hook removal", () => {
       const hookFilter = process.env.HOOK_FILTER;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
+      if (!settings.hooks?.SessionEnd) process.exit(0);
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
         (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );

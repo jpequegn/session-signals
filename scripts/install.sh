@@ -59,7 +59,6 @@ setup_directories() {
   mkdir -p "$SIGNALS_DIR"
   mkdir -p "$SIGNALS_HISTORY_DIR"
   mkdir -p "$DIGESTS_DIR"
-  mkdir -p "$HOME/.claude"
 
   info "Directories ready."
 }
@@ -136,7 +135,7 @@ setup_hook() {
         {
           type: 'command',
           command: hookCmd,
-          timeout: 15,
+          timeout: 15, // seconds
         },
       ],
     });
@@ -144,6 +143,16 @@ setup_hook() {
     fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
     console.log('[install] SessionEnd hook registered in settings.json');
   "
+}
+
+# ── Helpers ──────────────────────────────────────────────────────────
+
+xml_escape() {
+  local s="$1"
+  s="${s//&/&amp;}"
+  s="${s//</&lt;}"
+  s="${s//>/&gt;}"
+  printf '%s' "$s"
 }
 
 # ── launchd plist ────────────────────────────────────────────────────
@@ -171,11 +180,11 @@ setup_launchd() {
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>$PLIST_LABEL</string>
+    <string>$(xml_escape "$PLIST_LABEL")</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$bun_path</string>
-        <string>$analyzer_path</string>
+        <string>$(xml_escape "$bun_path")</string>
+        <string>$(xml_escape "$analyzer_path")</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>
@@ -185,15 +194,15 @@ setup_launchd() {
         <integer>0</integer>
     </dict>
     <key>StandardOutPath</key>
-    <string>$log_path</string>
+    <string>$(xml_escape "$log_path")</string>
     <key>StandardErrorPath</key>
-    <string>$error_log_path</string>
+    <string>$(xml_escape "$error_log_path")</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:$(dirname "$bun_path")</string>
+        <string>$(xml_escape "/usr/local/bin:/usr/bin:/bin:$(dirname "$bun_path")")</string>
         <key>HOME</key>
-        <string>$HOME</string>
+        <string>$(xml_escape "$HOME")</string>
     </dict>
 </dict>
 </plist>
