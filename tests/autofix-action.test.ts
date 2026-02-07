@@ -420,12 +420,11 @@ describe("executeAutofixAction", () => {
   });
 
   it("handles agent failure with no commits by deleting branch", async () => {
-    const checkedOut: string[] = [];
-    const deleted: string[] = [];
+    const ops: string[] = [];
     const git = mockGit({
-      checkoutBranch: async (name) => { checkedOut.push(name); },
+      checkoutBranch: async (name) => { ops.push(`checkout:${name}`); },
       hasNewCommits: async () => false,
-      deleteBranch: async (name) => { deleted.push(name); },
+      deleteBranch: async (name) => { ops.push(`delete:${name}`); },
     });
     const agent = mockAgent({
       run: async () => { throw new Error("Agent crashed"); },
@@ -442,9 +441,13 @@ describe("executeAutofixAction", () => {
     expect(results[0]!.action).toBe("skipped");
     expect(results[0]!.reason).toContain("branch deleted");
     expect(results[0]!.branch).toBeUndefined();
-    expect(deleted).toContain("signals/fix-pat-20260205-001");
     expect(warnings.length).toBeGreaterThan(0);
-    expect(checkedOut).toContain("main");
+    // Verify checkout happens before delete to avoid deleting current branch
+    const checkoutIdx = ops.indexOf("checkout:main");
+    const deleteIdx = ops.indexOf("delete:signals/fix-pat-20260205-001");
+    expect(checkoutIdx).toBeGreaterThanOrEqual(0);
+    expect(deleteIdx).toBeGreaterThanOrEqual(0);
+    expect(checkoutIdx).toBeLessThan(deleteIdx);
   });
 
   it("handles agent failure with partial commits by retaining branch", async () => {

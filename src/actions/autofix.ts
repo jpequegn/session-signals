@@ -155,8 +155,10 @@ export function meetsAutoFixThreshold(
 // ── Fix prompt builder ──────────────────────────────────────────────
 
 // Trust boundary: pattern fields are interpolated into the agent prompt.
-// Callers must ensure pattern data comes from trusted sources (e.g. local
-// analysis), not from untrusted external input that could inject instructions.
+// Fenced code blocks reduce but do not eliminate injection risk (a field
+// containing triple-backticks can break out). Callers must ensure pattern
+// data comes from trusted sources (e.g. local analysis), not from untrusted
+// external input.
 export function buildFixPrompt(pattern: Pattern): string {
   const lines = [
     "You are fixing a detected friction pattern in this codebase.",
@@ -347,11 +349,9 @@ export async function executeAutofixAction(
         });
       } catch (err) {
         warn(`autofix action: agent failed for pattern ${pattern.id}: ${err}`);
-        // Delete branch if agent made no commits, allowing retry on next run
-        const hasCommits = await git.hasNewCommits(branchName, originalBranch).catch(() => false);
+        // Assume commits exist on failure to avoid deleting work
+        const hasCommits = await git.hasNewCommits(branchName, originalBranch).catch(() => true);
         if (!hasCommits) {
-          await git.checkoutBranch(originalBranch);
-          await git.deleteBranch(branchName).catch(() => {});
           results.push({
             pattern_id: pattern.id,
             action: "skipped",
@@ -365,6 +365,12 @@ export async function executeAutofixAction(
             reason: `Agent failed; branch retained (has partial commits): ${err}`,
           });
         }
+        // Return to original branch before any branch deletion
+        await git.checkoutBranch(originalBranch);
+        if (!hasCommits) {
+          await git.deleteBranch(branchName).catch(() => {});
+        }
+        continue;
       }
 
       // Always return to original branch
