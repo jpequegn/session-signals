@@ -144,8 +144,9 @@ function makeInput(overrides?: Partial<DigestInput>): DigestInput {
 
 describe("generateDigestMarkdown", () => {
   it("includes title with today's date", () => {
-    const md = generateDigestMarkdown(makeInput());
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const md = generateDigestMarkdown(makeInput(), now);
+    const today = now.toISOString().slice(0, 10);
     expect(md).toContain(`# Session Signals Digest — ${today}`);
   });
 
@@ -396,7 +397,8 @@ describe("generateDigestMarkdown", () => {
   });
 
   it("trend table counts signals for matching days", () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
     const input = makeInput({
       signalRecords: [
         makeSignalRecord({
@@ -406,7 +408,7 @@ describe("generateDigestMarkdown", () => {
         }),
       ],
     });
-    const md = generateDigestMarkdown(input);
+    const md = generateDigestMarkdown(input, now);
     // Find the row for today
     const todayRow = md.split("\n").find((l) => l.startsWith(`| ${today}`));
     expect(todayRow).toBeDefined();
@@ -570,7 +572,8 @@ describe("executeDigestAction", () => {
   });
 
   it("creates output directory if it does not exist", async () => {
-    const dir = join(tmpdir(), `digest-test-${Date.now()}`, "nested", "dir");
+    const base = join(tmpdir(), `digest-test-${Date.now()}`);
+    const dir = join(base, "nested", "dir");
     const input = makeInput({
       config: makeConfig({
         actions: {
@@ -587,14 +590,13 @@ describe("executeDigestAction", () => {
       const contents = await readFile(result!.path, "utf-8");
       expect(contents).toContain("# Session Signals Digest");
     } finally {
-      // Clean up the top-level temp dir
-      const topDir = join(tmpdir(), dir.split("/").filter(Boolean).slice(-3, -2)[0]!);
-      await rm(join(tmpdir(), `digest-test-${dir.match(/digest-test-(\d+)/)?.[1]}`), { recursive: true, force: true });
+      await rm(base, { recursive: true, force: true });
     }
   });
 
   it("uses today's date in filename", async () => {
     const dir = join(tmpdir(), `digest-test-${Date.now()}`);
+    const now = new Date();
     const input = makeInput({
       config: makeConfig({
         actions: {
@@ -606,8 +608,8 @@ describe("executeDigestAction", () => {
     });
 
     try {
-      const result = await executeDigestAction(input);
-      const today = new Date().toISOString().slice(0, 10);
+      const result = await executeDigestAction(input, now);
+      const today = now.toISOString().slice(0, 10);
       expect(result!.path).toContain(`${today}_digest.md`);
     } finally {
       await rm(dir, { recursive: true, force: true });

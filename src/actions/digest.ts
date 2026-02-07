@@ -193,16 +193,16 @@ function generateConfiguration(config: Config): string {
 function generateHarnessBreakdown(records: SignalRecord[]): string {
   // Group by harness from the signals' evidence — we infer from scope/project
   // Since SignalRecord doesn't carry harness info directly, group by scope
-  const scopeCounts = new Map<string, { sessions: number; signals: number }>();
+  const scopeCounts = new Map<string, { sessionIds: Set<string>; signals: number }>();
 
   for (const record of records) {
     const scope = record.scope;
     const existing = scopeCounts.get(scope);
     if (existing) {
-      existing.sessions++;
+      existing.sessionIds.add(record.session_id);
       existing.signals += record.signals.length;
     } else {
-      scopeCounts.set(scope, { sessions: 1, signals: record.signals.length });
+      scopeCounts.set(scope, { sessionIds: new Set([record.session_id]), signals: record.signals.length });
     }
   }
 
@@ -218,7 +218,7 @@ function generateHarnessBreakdown(records: SignalRecord[]): string {
   ];
 
   for (const [scope, counts] of [...scopeCounts.entries()].sort((a, b) => b[1].signals - a[1].signals)) {
-    lines.push(`| ${scope} | ${counts.sessions} | ${counts.signals} |`);
+    lines.push(`| ${scope} | ${counts.sessionIds.size} | ${counts.signals} |`);
   }
 
   lines.push("");
@@ -227,7 +227,7 @@ function generateHarnessBreakdown(records: SignalRecord[]): string {
 
 // ── Public API ──────────────────────────────────────────────────────
 
-export function generateDigestMarkdown(input: DigestInput): string {
+export function generateDigestMarkdown(input: DigestInput, date?: Date): string {
   const {
     analysisResults,
     signalRecords,
@@ -236,11 +236,11 @@ export function generateDigestMarkdown(input: DigestInput): string {
     config,
   } = input;
 
-  const date = new Date().toISOString().slice(0, 10);
+  const ref = date ?? new Date();
+  const dateStr = ref.toISOString().slice(0, 10);
 
   // Compute 7-day range for trend table
   const days: string[] = [];
-  const ref = new Date();
   for (let i = config.analyzer.lookback_days - 1; i >= 0; i--) {
     const d = new Date(ref);
     d.setDate(d.getDate() - i);
@@ -248,7 +248,7 @@ export function generateDigestMarkdown(input: DigestInput): string {
   }
 
   const sections = [
-    `# Session Signals Digest — ${date}`,
+    `# Session Signals Digest — ${dateStr}`,
     "",
     // Summary from analysis
     ...analysisResults
@@ -268,14 +268,16 @@ export function generateDigestMarkdown(input: DigestInput): string {
 
 export async function executeDigestAction(
   input: DigestInput,
+  date?: Date,
 ): Promise<DigestResult | null> {
   const digestConfig = input.config.actions.digest;
   if (!digestConfig.enabled) return null;
 
-  const markdown = generateDigestMarkdown(input);
+  const ref = date ?? new Date();
+  const markdown = generateDigestMarkdown(input, ref);
   const dir = resolveDir(digestConfig.output_dir);
-  const date = new Date().toISOString().slice(0, 10);
-  const path = join(dir, `${date}_digest.md`);
+  const dateStr = ref.toISOString().slice(0, 10);
+  const path = join(dir, `${dateStr}_digest.md`);
 
   await mkdir(dir, { recursive: true });
   await writeFile(path, markdown, "utf-8");
