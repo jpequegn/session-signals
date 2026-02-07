@@ -282,7 +282,7 @@ describe("GeminiCliAdapter", () => {
       const prompts = events.filter((e) => e.type === "user_prompt");
       expect(prompts).toHaveLength(1);
       expect(prompts[0]!.message).toBe("valid");
-      expect(warnings.length).toBeGreaterThanOrEqual(2); // null and 42 trigger warnings
+      expect(warnings).toHaveLength(3); // null, 42, and "string" all trigger warnings
     });
 
     it("does not include tool_input when args is empty", () => {

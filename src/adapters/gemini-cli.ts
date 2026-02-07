@@ -85,6 +85,9 @@ function contentToEvents(
 ): NormalizedEvent[] {
   const events: NormalizedEvent[] = [];
   const parts = content.parts ?? [];
+  if (parts.length >= 1000) {
+    throw new Error(`Content entry ${contentIndex} has ${parts.length} parts, exceeding the 999-part limit per entry`);
+  }
   const baseMs = new Date(baseTimestamp).getTime();
   for (let p = 0; p < parts.length; p++) {
     const partTs = new Date(baseMs + p + 1).toISOString();
