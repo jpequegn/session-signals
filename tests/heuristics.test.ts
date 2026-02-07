@@ -417,6 +417,25 @@ describe("detectRetryLoop", () => {
     expect(detectRetryLoop(events, defaultConfig)).toBeNull();
   });
 
+  it("captures longest streak when streak resets and restarts", () => {
+    const events = [
+      // First streak of 3: A-A-A
+      makeEvent({ type: "tool_use", tool_name: "shell_exec", tool_input: { command: "bun test" } }),
+      makeEvent({ type: "tool_use", tool_name: "shell_exec", tool_input: { command: "bun test" } }),
+      makeEvent({ type: "tool_use", tool_name: "shell_exec", tool_input: { command: "bun test" } }),
+      // Break
+      makeEvent({ type: "tool_use", tool_name: "file_read", tool_input: { path: "/src/main.ts" } }),
+      // Second streak of 4: A-A-A-A
+      makeEvent({ type: "tool_use", tool_name: "shell_exec", tool_input: { command: "bun test" } }),
+      makeEvent({ type: "tool_use", tool_name: "shell_exec", tool_input: { command: "bun test" } }),
+      makeEvent({ type: "tool_use", tool_name: "shell_exec", tool_input: { command: "bun test" } }),
+      makeEvent({ type: "tool_use", tool_name: "shell_exec", tool_input: { command: "bun test" } }),
+    ];
+    const result = detectRetryLoop(events, defaultConfig);
+    expect(result).not.toBeNull();
+    expect(result!.count).toBe(4);
+  });
+
   it("ignores tool uses without tool_input", () => {
     const events = [
       makeEvent({ type: "tool_use", tool_name: "shell_exec" }),
@@ -598,6 +617,20 @@ describe("extractFacets", () => {
 
     const facets = extractFacets(events, defaultConfig);
     expect(facets.session_duration_min).toBe(0);
+  });
+
+  it("filters out NaN timestamps when computing duration", () => {
+    const events = [
+      makeEvent({ type: "session_start", timestamp: tsSec(0) }),
+      makeEvent({ type: "user_prompt", message: "hello", timestamp: "not-a-date" }),
+      makeEvent({ type: "tool_result", tool_result: { success: true }, timestamp: tsSec(10) }),
+      makeEvent({ type: "session_end", timestamp: tsSec(60) }),
+    ];
+
+    const facets = extractFacets(events, defaultConfig);
+    // The malformed timestamp should be excluded; duration based on valid timestamps only
+    expect(facets.session_duration_min).toBe(1);
+    expect(facets.outcome).toBe("completed");
   });
 
   it("collects unique tool names", () => {

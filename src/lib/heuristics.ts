@@ -48,7 +48,10 @@ export function levenshteinRatio(a: string, b: string): number {
 // ── Helpers ─────────────────────────────────────────────────────────
 
 function timeDiffSeconds(a: string, b: string): number {
-  return (Date.parse(b) - Date.parse(a)) / 1000;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return NaN;
+  return (tb - ta) / 1000;
 }
 
 function severityFromCount(count: number, lowThreshold: number, highThreshold: number): Severity {
@@ -61,6 +64,8 @@ function severityFromCount(count: number, lowThreshold: number, highThreshold: n
 
 /**
  * Detect rephrase storm: user rephrases similar prompts multiple times.
+ * Note: only compares adjacent prompt pairs, so interleaved rephrases
+ * (e.g. A → B → A) are not detected.
  */
 export function detectRephraseStorm(
   events: NormalizedEvent[],
@@ -230,6 +235,7 @@ export function detectAbandonSignal(
   for (let i = endIndex - 1; i >= 0; i--) {
     const event = events[i]!;
     const gap = timeDiffSeconds(event.timestamp, endTs);
+    if (Number.isNaN(gap)) continue;
     if (gap > config.abandon_window_seconds) break;
 
     if (event.type === "tool_result" && event.tool_result?.success === false) {
@@ -270,6 +276,7 @@ export function detectLongStall(
 
   for (let i = 1; i < events.length; i++) {
     const gap = timeDiffSeconds(events[i - 1]!.timestamp, events[i]!.timestamp);
+    if (Number.isNaN(gap)) continue;
     if (gap >= config.stall_threshold_seconds) {
       stalls++;
       indices.push(i - 1, i);
@@ -356,6 +363,7 @@ const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   swift: "Swift",
   cs: "C#",
   cpp: "C++", cc: "C++", cxx: "C++", hpp: "C++", hxx: "C++",
+  // .h is ambiguous (could be C, C++, or Objective-C); defaulting to C
   c: "C", h: "C",
   php: "PHP",
   scala: "Scala",
