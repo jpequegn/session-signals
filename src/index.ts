@@ -29,5 +29,7 @@ export type {
 export type { HarnessAdapter } from "./adapters/types.js";
 export { ClaudeCodeAdapter } from "./adapters/claude-code.js";
 export type { ClaudeCodeAdapterOptions } from "./adapters/claude-code.js";
+export { GeminiCliAdapter } from "./adapters/gemini-cli.js";
+export type { GeminiCliAdapterOptions } from "./adapters/gemini-cli.js";
 
 export { loadConfig } from "./lib/config.js";

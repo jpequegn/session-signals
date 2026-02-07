@@ -8,7 +8,7 @@ export interface HarnessAdapter {
   /**
    * Parse raw event data (e.g. JSONL file contents) into normalized events.
    */
-  parseEvents(raw: string): NormalizedEvent[];
+  parseEvents(raw: string, sessionId?: string): NormalizedEvent[];
 
   /**
    * Retrieve all normalized events for a specific session.
