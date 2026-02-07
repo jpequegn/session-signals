@@ -92,7 +92,9 @@ setup_symlink() {
 # ── Claude Code hook registration ────────────────────────────────────
 
 setup_hook() {
-  local hook_command="$SIGNALS_DIR/signal-tagger.ts"
+  local bun_path
+  bun_path="$(command -v bun)"
+  local hook_command="$bun_path $SIGNALS_DIR/signal-tagger.ts"
 
   # Create settings.json if it doesn't exist
   if [[ ! -f "$SETTINGS_FILE" ]]; then
@@ -171,11 +173,9 @@ setup_launchd() {
 
   mkdir -p "$PLIST_DIR"
 
-  # Unload existing plist if loaded (ignore errors)
-  if launchctl list "$PLIST_LABEL" &>/dev/null; then
-    launchctl unload "$PLIST_FILE" 2>/dev/null || true
-    info "Unloaded existing plist."
-  fi
+  # Remove existing plist if loaded (ignore errors)
+  local domain="gui/$(id -u)"
+  launchctl bootout "$domain/$PLIST_LABEL" 2>/dev/null || true
 
   cat > "$PLIST_FILE" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -200,6 +200,8 @@ setup_launchd() {
     <string>$(xml_escape "$log_path")</string>
     <key>StandardErrorPath</key>
     <string>$(xml_escape "$error_log_path")</string>
+    <key>WorkingDirectory</key>
+    <string>$(xml_escape "$PROJECT_DIR")</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
@@ -211,7 +213,7 @@ setup_launchd() {
 </plist>
 PLIST
 
-  launchctl load "$PLIST_FILE"
+  launchctl bootstrap "$domain" "$PLIST_FILE"
   info "launchd plist installed and loaded."
   info "Daily analysis will run at midnight."
 }

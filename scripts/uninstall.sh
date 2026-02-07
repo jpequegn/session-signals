@@ -31,11 +31,10 @@ warn()  { echo -e "${YELLOW}[uninstall]${NC} $1"; }
 # ── Unload and remove launchd plist ──────────────────────────────────
 
 remove_launchd() {
+  local domain="gui/$(id -u)"
+  launchctl bootout "$domain/$PLIST_LABEL" 2>/dev/null || true
+
   if [[ -f "$PLIST_FILE" ]]; then
-    if launchctl list "$PLIST_LABEL" &>/dev/null; then
-      launchctl unload "$PLIST_FILE" 2>/dev/null || true
-      info "Unloaded launchd plist."
-    fi
     rm "$PLIST_FILE"
     info "Removed $PLIST_FILE"
   else
