@@ -54,6 +54,18 @@ export {
 export type { OllamaClient, OllamaClientOptions, OllamaGenerateOptions } from "./lib/ollama-client.js";
 export { createOllamaClient, OllamaError, OllamaConnectionError, OllamaParseError } from "./lib/ollama-client.js";
 
+export type { DailyTrend, AnalysisResult } from "./lib/pattern-analyzer.js";
+export {
+  dateRange,
+  loadSignalRecords,
+  groupByScope,
+  computeDailyTrends,
+  classifyTrend,
+  buildPrompt,
+  analyzeScope,
+  runAnalysis,
+} from "./lib/pattern-analyzer.js";
+
 export {
   levenshteinRatio,
   detectRephraseStorm,
