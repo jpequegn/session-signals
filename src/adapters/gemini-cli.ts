@@ -55,10 +55,14 @@ function canonicalToolName(raw: string): string {
 
 // ── Session file helpers ────────────────────────────────────────────
 
-/** Extract session ID from filename like session-2025-09-18T02-45-3b44bc68.json */
+/** Extract session ID from filename like session-2025-09-18T02-45-3b44bc68.json.
+ *  Uses the full stem (minus .json) to avoid collision risk from short hex suffixes. */
 function extractSessionId(filename: string): string | null {
-  const match = filename.match(/^session-[\dT-]+-([a-f\d]+)\.json$/);
-  return match?.[1] ?? null;
+  if (!filename.startsWith("session-") || !filename.endsWith(".json")) return null;
+  const stem = filename.slice(0, -".json".length);
+  // Validate the expected pattern exists
+  if (!/^session-[\dT-]+-[a-f\d]+$/.test(stem)) return null;
+  return stem;
 }
 
 /** Extract a timestamp hint from session filename */
@@ -189,7 +193,7 @@ export class GeminiCliAdapter implements HarnessAdapter {
    * Parse a Gemini CLI session JSON string into NormalizedEvents.
    * Expects the JSON format: { history: Content[] }
    */
-  parseEvents(raw: string): NormalizedEvent[] {
+  parseEvents(raw: string, sessionId?: string): NormalizedEvent[] {
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -211,7 +215,7 @@ export class GeminiCliAdapter implements HarnessAdapter {
       return [];
     }
 
-    return this.parseHistory(history, "unknown");
+    return this.parseHistory(history, sessionId ?? "unknown");
   }
 
   async getSessionEvents(sessionId: string): Promise<NormalizedEvent[]> {

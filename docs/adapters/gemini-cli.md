@@ -12,6 +12,8 @@ Gemini CLI stores sessions at:
 - `<timestamp>` — e.g. `2025-09-18T02-45`
 - `<short_id>` — first 8 hex chars of the session UUID (e.g. `3b44bc68`)
 
+The adapter uses the full filename stem (e.g. `session-2025-09-18T02-45-3b44bc68`) as the session ID to avoid collision risk from the short hex suffix alone.
+
 Other files in the same directory (`checkpoint-*.json`, `logs.json`, `shell_history`) are ignored by the adapter.
 
 ## Session File Format

@@ -276,6 +276,16 @@ describe("GeminiCliAdapter", () => {
       const toolUse = events.filter((e) => e.type === "tool_use")[0]!;
       expect(toolUse.tool_input).toBeUndefined();
     });
+
+    it("uses 'unknown' as session_id when no sessionId is provided", () => {
+      const events = adapter.parseEvents(makeSession([userText("hello")]));
+      expect(events[0]!.session_id).toBe("unknown");
+    });
+
+    it("uses provided sessionId when given", () => {
+      const events = adapter.parseEvents(makeSession([userText("hello")]), "my-session");
+      expect(events[0]!.session_id).toBe("my-session");
+    });
   });
 
   describe("getSessionEvents", () => {
@@ -305,10 +315,26 @@ describe("GeminiCliAdapter", () => {
       );
 
       const tmpAdapter = new GeminiCliAdapter({ eventsDir: tmpDir, warn: () => {} });
-      const events = await tmpAdapter.getSessionEvents("deadbeef");
+      const events = await tmpAdapter.getSessionEvents("session-2026-02-05T10-00-deadbeef");
       expect(events.length).toBeGreaterThan(0);
       const prompt = events.find((e) => e.type === "user_prompt");
       expect(prompt?.message).toBe("hello from Gemini");
+    });
+
+    it("derives timestamps from the session filename", async () => {
+      const projectDir = join(tmpDir, "abc123");
+      const chatsDir = join(projectDir, "chats");
+      await mkdir(chatsDir, { recursive: true });
+
+      await writeFile(
+        join(chatsDir, "session-2026-02-05T10-00-deadbeef.json"),
+        makeSession([userText("hello")]),
+      );
+
+      const tmpAdapter = new GeminiCliAdapter({ eventsDir: tmpDir, warn: () => {} });
+      const events = await tmpAdapter.getSessionEvents("session-2026-02-05T10-00-deadbeef");
+      const sessionStart = events.find((e) => e.type === "session_start");
+      expect(sessionStart?.timestamp).toBe("2026-02-05T10:00:00.000Z");
     });
 
     it("returns empty for non-matching session ID", async () => {
