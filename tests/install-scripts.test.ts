@@ -199,9 +199,11 @@ describe("hook removal", () => {
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       if (!settings.hooks?.SessionEnd) process.exit(0);
+      const before = settings.hooks.SessionEnd.length;
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
         (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
+      if (before === settings.hooks.SessionEnd.length) process.exit(0);
       if (settings.hooks.SessionEnd.length === 0) delete settings.hooks.SessionEnd;
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
@@ -232,9 +234,11 @@ describe("hook removal", () => {
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       if (!settings.hooks?.SessionEnd) process.exit(0);
+      const before = settings.hooks.SessionEnd.length;
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
         (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
+      if (before === settings.hooks.SessionEnd.length) process.exit(0);
       if (settings.hooks.SessionEnd.length === 0) delete settings.hooks.SessionEnd;
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
@@ -267,9 +271,11 @@ describe("hook removal", () => {
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       if (!settings.hooks?.SessionEnd) process.exit(0);
+      const before = settings.hooks.SessionEnd.length;
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
         (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
+      if (before === settings.hooks.SessionEnd.length) process.exit(0);
       if (settings.hooks.SessionEnd.length === 0) delete settings.hooks.SessionEnd;
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
@@ -300,9 +306,11 @@ describe("hook removal", () => {
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       if (!settings.hooks?.SessionEnd) process.exit(0);
+      const before = settings.hooks.SessionEnd.length;
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
         (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
+      if (before === settings.hooks.SessionEnd.length) process.exit(0);
       if (settings.hooks.SessionEnd.length === 0) delete settings.hooks.SessionEnd;
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
@@ -395,5 +403,36 @@ describe("launchd plist structure", () => {
   it("includes correct label", () => {
     const label = "com.session-signals.daily-analysis";
     expect(label).toMatch(/^com\.session-signals\./);
+  });
+
+  it("xml_escape handles special characters", async () => {
+    // Replicate the xml_escape logic from install.sh
+    const result = await runBunScript(`
+      function xmlEscape(s) {
+        s = s.replace(/&/g, '&amp;');
+        s = s.replace(/</g, '&lt;');
+        s = s.replace(/>/g, '&gt;');
+        s = s.replace(/"/g, '&quot;');
+        s = s.replace(/'/g, '&apos;');
+        return s;
+      }
+      const tests = [
+        { input: '/normal/path', expected: '/normal/path' },
+        { input: 'a&b', expected: 'a&amp;b' },
+        { input: '<tag>', expected: '&lt;tag&gt;' },
+        { input: 'say "hello"', expected: 'say &quot;hello&quot;' },
+        { input: "it's", expected: "it&apos;s" },
+        { input: 'a&b<c>d"e\\'f', expected: "a&amp;b&lt;c&gt;d&quot;e&apos;f" },
+      ];
+      for (const t of tests) {
+        const got = xmlEscape(t.input);
+        if (got !== t.expected) {
+          console.error('FAIL: xmlEscape(' + JSON.stringify(t.input) + ') = ' + JSON.stringify(got) + ', want ' + JSON.stringify(t.expected));
+          process.exit(1);
+        }
+      }
+      console.log('OK');
+    `);
+    expect(result.trim()).toBe("OK");
   });
 });

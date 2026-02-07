@@ -114,7 +114,9 @@ remove_hook() {
       delete settings.hooks;
     }
 
-    fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    const tmpPath = path + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    fs.renameSync(tmpPath, path);
     console.log('[uninstall] Removed ' + hookFilter + ' hook from settings.json');
   "
 }

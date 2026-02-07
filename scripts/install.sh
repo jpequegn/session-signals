@@ -70,6 +70,11 @@ setup_symlink() {
   local source="$PROJECT_DIR/src/signal-tagger.ts"
   local target="$SIGNALS_DIR/signal-tagger.ts"
 
+  if [[ ! -f "$source" ]]; then
+    error "Source file not found: $source"
+    exit 1
+  fi
+
   if [[ -L "$target" ]]; then
     local existing
     existing="$(readlink "$target")"
@@ -146,7 +151,9 @@ setup_hook() {
       ],
     });
 
-    fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    const tmpPath = path + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    fs.renameSync(tmpPath, path);
     console.log('[install] SessionEnd hook registered in settings.json');
   "
 }
