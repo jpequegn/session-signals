@@ -385,6 +385,27 @@ describe("writeSignalRecord integration", () => {
     expect(parsed.facets.outcome).toBe("completed");
     expect(parsed.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
+
+  it("appends multiple records to the same file", async () => {
+    const events = [
+      makeEvent({ type: "session_start", timestamp: tsSec(0) }),
+      makeEvent({ type: "session_end", timestamp: tsSec(10) }),
+    ];
+    const config = makeConfig();
+    const record1 = buildSignalRecord("sess-1", events, config, tmpDir);
+    const record2 = buildSignalRecord("sess-2", events, config, tmpDir);
+
+    await writeSignalRecord(record1, tmpDir);
+    await writeSignalRecord(record2, tmpDir);
+
+    const date = record1.timestamp.slice(0, 10);
+    const outPath = join(tmpDir, `${date}_signals.jsonl`);
+    const content = await readFile(outPath, "utf-8");
+    const lines = content.trim().split("\n");
+    expect(lines.length).toBe(2);
+    expect(JSON.parse(lines[0]!).session_id).toBe("sess-1");
+    expect(JSON.parse(lines[1]!).session_id).toBe("sess-2");
+  });
 });
 
 // ── End-to-end: script execution ────────────────────────────────────
@@ -417,7 +438,7 @@ describe("signal-tagger script", () => {
       stdout: "pipe",
       stderr: "pipe",
     });
-    proc.stdin.write("{bad json}");
+    proc.stdin.write("not valid json at all");
     proc.stdin.end();
     const exitCode = await proc.exited;
     expect(exitCode).toBe(0);

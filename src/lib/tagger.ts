@@ -39,6 +39,8 @@ export function detectHarness(input: HookInput, config: Config): HarnessType | n
   const tp = input.transcript_path ?? "";
   if (/[/\\]\.claude[/\\]/.test(tp)) return "claude_code";
   if (/[/\\]\.gemini[/\\]/.test(tp)) return "gemini_cli";
+  // Note: /.pi/ is a short name that could match unrelated directories.
+  // This is acceptable since env-var checks above take priority for disambiguation.
   if (/[/\\]\.pi[/\\]/.test(tp)) return "pi_coding_agent";
 
   // Check environment variables
@@ -147,17 +149,18 @@ export function signalsOutputDir(): string {
   return join(homedir(), ".claude", "history", "signals");
 }
 
+function isValidDateString(d: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  try {
+    return new Date(d + "T00:00:00Z").toISOString().slice(0, 10) === d;
+  } catch {
+    return false;
+  }
+}
+
 export function signalsFilePath(date?: string): string {
   const d = date ?? new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  let valid = /^\d{4}-\d{2}-\d{2}$/.test(d);
-  if (valid) {
-    try {
-      valid = new Date(d + "T00:00:00Z").toISOString().slice(0, 10) === d;
-    } catch {
-      valid = false;
-    }
-  }
-  if (!valid) {
+  if (!isValidDateString(d)) {
     throw new Error(`Invalid date format: expected YYYY-MM-DD, got "${d}"`);
   }
   return join(signalsOutputDir(), `${d}_signals.jsonl`);
@@ -167,15 +170,7 @@ export async function writeSignalRecord(record: SignalRecord, outputDir?: string
   const dir = outputDir ?? signalsOutputDir();
   await mkdir(dir, { recursive: true });
   const date = record.timestamp.slice(0, 10);
-  let validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
-  if (validDate) {
-    try {
-      validDate = new Date(date + "T00:00:00Z").toISOString().slice(0, 10) === date;
-    } catch {
-      validDate = false;
-    }
-  }
-  if (!validDate) {
+  if (!isValidDateString(date)) {
     throw new Error(`Invalid timestamp in signal record: "${record.timestamp}"`);
   }
   const filePath = join(dir, `${date}_signals.jsonl`);
