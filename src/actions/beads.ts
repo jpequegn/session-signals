@@ -83,16 +83,17 @@ export function createBeadsCli(): BeadsCli {
 // ── Issue title helpers ─────────────────────────────────────────────
 
 export function buildIssueTitle(pattern: Pattern, prefix: string): string {
+  if (!prefix) return pattern.description;
   return `${prefix} ${pattern.description}`;
 }
 
-export function findExistingIssue(searchOutput: string, prefix: string): string | null {
-  // Search output from `bd search` is line-based, each line represents an issue
-  // Look for lines containing the prefix that indicate an open issue
+export function findExistingIssue(searchOutput: string, title: string): string | null {
   const lines = searchOutput.split("\n").filter((l) => l.trim() !== "");
 
   for (const line of lines) {
-    if (!line.includes(prefix)) continue;
+    // Skip closed issues
+    if (/\bclosed\b/i.test(line)) continue;
+    if (!line.includes(title)) continue;
 
     // Extract issue ID — typically the first token (e.g. "SS-1", "PROJ-42")
     const match = line.match(/^([A-Z]+-\d+|[a-z]+-\d+|\S+)/);
@@ -169,9 +170,9 @@ export async function executeBeadsAction(
     const title = buildIssueTitle(pattern, config.title_prefix);
 
     try {
-      // Check for existing issue
-      const searchResult = await cli.search(pattern.description);
-      const existingId = findExistingIssue(searchResult, config.title_prefix);
+      // Check for existing issue by full title
+      const searchResult = await cli.search(title);
+      const existingId = findExistingIssue(searchResult, title);
 
       if (existingId) {
         // Update existing issue with comment

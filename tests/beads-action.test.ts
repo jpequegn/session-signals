@@ -100,33 +100,48 @@ describe("buildIssueTitle", () => {
     const title = buildIssueTitle(makePattern({ description: "Bug" }), "[custom]");
     expect(title).toBe("[custom] Bug");
   });
+
+  it("handles empty prefix", () => {
+    const title = buildIssueTitle(makePattern({ description: "Bug" }), "");
+    expect(title).toBe("Bug");
+  });
 });
 
 // ── findExistingIssue ───────────────────────────────────────────────
 
 describe("findExistingIssue", () => {
   it("returns null for empty search output", () => {
-    expect(findExistingIssue("", "[signals]")).toBeNull();
+    expect(findExistingIssue("", "[signals] Shell failures")).toBeNull();
   });
 
   it("returns null when no matching issues", () => {
-    const output = "SS-1  Some unrelated issue\nSS-2  Another issue";
-    expect(findExistingIssue(output, "[signals]")).toBeNull();
+    const output = "SS-1  [signals] Some unrelated issue\nSS-2  Another issue";
+    expect(findExistingIssue(output, "[signals] Shell failures")).toBeNull();
   });
 
-  it("finds issue with matching prefix", () => {
+  it("finds issue with matching full title", () => {
     const output = "SS-1  [signals] Repeated shell failures\nSS-2  Other issue";
-    expect(findExistingIssue(output, "[signals]")).toBe("SS-1");
+    expect(findExistingIssue(output, "[signals] Repeated shell failures")).toBe("SS-1");
   });
 
   it("returns first matching issue", () => {
-    const output = "SS-3  [signals] First match\nSS-5  [signals] Second match";
-    expect(findExistingIssue(output, "[signals]")).toBe("SS-3");
+    const output = "SS-3  [signals] First match\nSS-5  [signals] First match";
+    expect(findExistingIssue(output, "[signals] First match")).toBe("SS-3");
   });
 
   it("handles lowercase issue IDs", () => {
     const output = "proj-42  [signals] Some pattern";
-    expect(findExistingIssue(output, "[signals]")).toBe("proj-42");
+    expect(findExistingIssue(output, "[signals] Some pattern")).toBe("proj-42");
+  });
+
+  it("skips closed issues", () => {
+    const output = "SS-1  closed  [signals] Shell failures\nSS-2  [signals] Shell failures";
+    expect(findExistingIssue(output, "[signals] Shell failures")).toBe("SS-2");
+  });
+
+  it("returns null when all matching issues are closed", () => {
+    const output = "SS-1  closed  [signals] Shell failures";
+    expect(findExistingIssue(output, "[signals] Shell failures")).toBeNull();
   });
 });
 
@@ -143,6 +158,12 @@ describe("buildUpdateComment", () => {
     const comment = buildUpdateComment(makePattern());
     expect(comment).toContain("Missing test dependency");
     expect(comment).toContain("Install missing dependency");
+  });
+
+  it("omits root cause and suggested fix when empty", () => {
+    const comment = buildUpdateComment(makePattern({ root_cause_hypothesis: "", suggested_fix: "" }));
+    expect(comment).not.toContain("Root cause hypothesis");
+    expect(comment).not.toContain("Suggested fix");
   });
 });
 
@@ -228,9 +249,13 @@ describe("executeBeadsAction", () => {
   it("updates existing issue when match found", async () => {
     let commentedId = "";
     let commentText = "";
+    let searchedQuery = "";
 
     const cli = mockCli({
-      search: async () => "SS-42  [signals] Repeated shell failures in tests",
+      search: async (query) => {
+        searchedQuery = query;
+        return "SS-42  [signals] Repeated shell failures in tests";
+      },
       addComment: async (id, comment) => {
         commentedId = id;
         commentText = comment;
@@ -248,6 +273,7 @@ describe("executeBeadsAction", () => {
     expect(results[0]!.action).toBe("updated");
     expect(commentedId).toBe("SS-42");
     expect(commentText).toContain("Signal update");
+    expect(searchedQuery).toBe("[signals] Repeated shell failures in tests");
   });
 
   it("handles CLI errors gracefully", async () => {
@@ -293,7 +319,7 @@ describe("executeBeadsAction", () => {
   it("adds trend comment for decreasing patterns", async () => {
     let commentText = "";
     const cli = mockCli({
-      search: async () => "SS-10  [signals] Some pattern",
+      search: async () => "SS-10  [signals] Repeated shell failures in tests",
       addComment: async (_id, comment) => { commentText = comment; return "ok"; },
     });
 
