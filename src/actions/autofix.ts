@@ -216,6 +216,7 @@ export async function cleanupExpiredBranches(
   const results: CleanupResult[] = [];
 
   const branches = await git.listBranches(config.branch_prefix);
+  // Hoisted before loop: safe because no checkouts occur within the loop body.
   const currentBranch = await git.currentBranch();
 
   for (const branch of branches) {
@@ -370,12 +371,14 @@ export async function executeAutofixAction(
           });
         }
         // Return to original branch before any branch deletion
+        let checkedOut = false;
         try {
           await git.checkoutBranch(originalBranch);
+          checkedOut = true;
         } catch {
           warn("autofix action: failed to return to original branch after agent failure");
         }
-        if (!hasCommits) {
+        if (!hasCommits && checkedOut) {
           await git.deleteBranch(branchName).catch(() => {});
         }
         continue;

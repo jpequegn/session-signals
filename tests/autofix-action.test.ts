@@ -555,4 +555,31 @@ describe("executeAutofixAction", () => {
     expect(results[0]!.action).toBe("skipped");
     expect(warnings.some((w) => w.includes("failed to return to original branch"))).toBe(true);
   });
+
+  it("skips branch deletion when checkout fails and hasNewCommits is false", async () => {
+    const deleted: string[] = [];
+    const git = mockGit({
+      createAndCheckoutBranch: async () => {},
+      checkoutBranch: async () => { throw new Error("checkout failed"); },
+      hasNewCommits: async () => false,
+      deleteBranch: async (name) => { deleted.push(name); },
+    });
+    const agent = mockAgent({
+      run: async () => { throw new Error("Agent failed"); },
+    });
+    const warnings: string[] = [];
+
+    const results = await executeAutofixAction(
+      [makePattern()],
+      defaultConfig,
+      { git, agent, warn: (msg) => warnings.push(msg) },
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.action).toBe("skipped");
+    expect(results[0]!.reason).toContain("branch deleted");
+    // deleteBranch should NOT be called because checkout failed
+    expect(deleted).toHaveLength(0);
+    expect(warnings.some((w) => w.includes("failed to return to original branch"))).toBe(true);
+  });
 });
