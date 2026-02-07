@@ -79,29 +79,32 @@ function contentToEvents(
 ): NormalizedEvent[] {
   const events: NormalizedEvent[] = [];
   const parts = content.parts ?? [];
+  const baseMs = new Date(baseTimestamp).getTime();
+  let partOffset = 0;
 
   for (const part of parts) {
+    const partTs = new Date(baseMs + partOffset).toISOString();
+
     if (part.text !== undefined) {
       if (content.role === "user") {
         events.push({
           id: randomUUID(),
-          timestamp: baseTimestamp,
+          timestamp: partTs,
           harness: "gemini_cli",
           type: "user_prompt",
           session_id: sessionId,
           message: part.text,
           metadata: { content_index: contentIndex },
         });
+        partOffset++;
       }
-      // Model text responses are not mapped to a NormalizedEvent type
-      // (they're LLM output, not tool/user events)
       continue;
     }
 
     if (part.functionCall) {
       const event: NormalizedEvent = {
         id: randomUUID(),
-        timestamp: baseTimestamp,
+        timestamp: partTs,
         harness: "gemini_cli",
         type: "tool_use",
         session_id: sessionId,
@@ -115,6 +118,7 @@ function contentToEvents(
         event.tool_input = part.functionCall.args;
       }
       events.push(event);
+      partOffset++;
       continue;
     }
 
@@ -127,7 +131,7 @@ function contentToEvents(
 
       const event: NormalizedEvent = {
         id: randomUUID(),
-        timestamp: baseTimestamp,
+        timestamp: partTs,
         harness: "gemini_cli",
         type: "tool_result",
         session_id: sessionId,
@@ -154,13 +158,12 @@ function contentToEvents(
       event.tool_result = result;
 
       events.push(event);
+      partOffset++;
     }
   }
 
   return events;
 }
-
-const FILE_READ_BATCH_SIZE = 20;
 
 // ── Public API ──────────────────────────────────────────────────────
 
@@ -214,32 +217,24 @@ export class GeminiCliAdapter implements HarnessAdapter {
   async getSessionEvents(sessionId: string): Promise<NormalizedEvent[]> {
     const sessionFiles = await this.findSessionFiles();
 
-    for (let start = 0; start < sessionFiles.length; start += FILE_READ_BATCH_SIZE) {
-      const batch = sessionFiles.slice(start, start + FILE_READ_BATCH_SIZE);
-      const results = await Promise.allSettled(
-        batch.map((f) => readFile(f.path, "utf-8")),
-      );
+    // Find the first matching file by session ID without reading all files
+    const match = sessionFiles.find((f) => f.sessionId === sessionId);
+    if (!match) return [];
 
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i]!;
-        const file = batch[i]!;
-        if (result.status === "rejected") {
-          this.warn(`gemini-cli adapter: failed to read ${file.path}: ${result.reason}`);
-          continue;
-        }
-
-        if (file.sessionId === sessionId) {
-          return this.parseSessionFile(result.value, file.sessionId, file.timestamp);
-        }
-      }
+    let raw: string;
+    try {
+      raw = await readFile(match.path, "utf-8");
+    } catch (err) {
+      this.warn(`gemini-cli adapter: failed to read ${match.path}: ${err}`);
+      return [];
     }
 
-    return [];
+    return this.parseSessionFile(raw, match.sessionId, match.timestamp);
   }
 
   private parseHistory(history: unknown[], sessionId: string, baseTimestamp?: string): NormalizedEvent[] {
     const events: NormalizedEvent[] = [];
-    const ts = baseTimestamp ?? new Date().toISOString();
+    const ts = baseTimestamp ?? "1970-01-01T00:00:00.000Z";
 
     // Synthesize session_start
     events.push({
@@ -256,7 +251,7 @@ export class GeminiCliAdapter implements HarnessAdapter {
         this.warn(`gemini-cli adapter: skipping invalid content at index ${i}`);
         continue;
       }
-      if (!content.role || !Array.isArray(content.parts)) continue;
+      if (!content.role) continue;
 
       // Offset each content entry by 1ms to preserve ordering
       const entryTs = new Date(new Date(ts).getTime() + i + 1).toISOString();

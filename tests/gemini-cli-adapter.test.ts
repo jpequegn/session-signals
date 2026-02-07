@@ -86,6 +86,16 @@ describe("GeminiCliAdapter", () => {
       expect(toolResult[0]!.tool_result?.error).toBe("command not found");
     });
 
+    it("JSON-stringifies non-string error in functionResponse", () => {
+      const raw = makeSession([
+        userFunctionResponse("run_shell_command", { error: { code: 404, message: "not found" } }),
+      ]);
+      const events = adapter.parseEvents(raw);
+      const toolResult = events.filter((e) => e.type === "tool_result");
+      expect(toolResult[0]!.tool_result?.success).toBe(false);
+      expect(toolResult[0]!.tool_result?.error).toBe(JSON.stringify({ code: 404, message: "not found" }));
+    });
+
     it("handles object content in functionResponse", () => {
       const raw = makeSession([
         userFunctionResponse("list_directory", { files: ["a.ts", "b.ts"] }),
@@ -146,6 +156,26 @@ describe("GeminiCliAdapter", () => {
     it("maps google_web_search to web_access", () => {
       const events = adapter.parseEvents(makeSession([modelFunctionCall("google_web_search")]));
       expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("web_access");
+    });
+
+    it("maps save_memory to memory", () => {
+      const events = adapter.parseEvents(makeSession([modelFunctionCall("save_memory")]));
+      expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("memory");
+    });
+
+    it("maps write_todos to planning", () => {
+      const events = adapter.parseEvents(makeSession([modelFunctionCall("write_todos")]));
+      expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("planning");
+    });
+
+    it("maps codebase_investigator to file_search", () => {
+      const events = adapter.parseEvents(makeSession([modelFunctionCall("codebase_investigator")]));
+      expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("file_search");
+    });
+
+    it("maps activate_skill to skill", () => {
+      const events = adapter.parseEvents(makeSession([modelFunctionCall("activate_skill")]));
+      expect(events.filter((e) => e.type === "tool_use")[0]!.tool_name).toBe("skill");
     });
 
     it("lowercases unknown tool names", () => {
