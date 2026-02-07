@@ -115,8 +115,8 @@ export function createGitOps(cwd?: string): GitOps {
   };
 }
 
-export function createAgentRunner(options?: { timeout?: number }): AgentRunner {
-  const timeout = options?.timeout ?? 300_000;
+export function createAgentRunner(options?: { timeoutMs?: number }): AgentRunner {
+  const timeout = options?.timeoutMs ?? 300_000;
   return {
     async isAvailable(): Promise<boolean> {
       try {
@@ -156,12 +156,12 @@ export function meetsAutoFixThreshold(
 // ── Fix prompt builder ──────────────────────────────────────────────
 
 // Trust boundary: pattern fields are interpolated into the agent prompt.
-// Backticks are escaped to prevent breaking out of the fenced code block.
+// Backticks are stripped to prevent breaking out of the fenced code block.
 // Callers should still ensure pattern data comes from trusted sources
 // (e.g. local analysis), not from untrusted external input.
 
 function sanitizeForFence(value: string): string {
-  return value.replace(/`/g, "\\`");
+  return value.replace(/`/g, "");
 }
 
 export function buildFixPrompt(pattern: Pattern): string {
@@ -212,8 +212,10 @@ export function buildBranchName(pattern: Pattern, prefix: string): string {
 export async function cleanupExpiredBranches(
   config: AutofixActionConfig,
   options?: {
+    /** Provide a custom GitOps instance. When set, `cwd` is ignored. */
     git?: GitOps;
     warn?: (msg: string) => void;
+    /** Working directory for the default GitOps. Ignored when `git` is provided. */
     cwd?: string;
   },
 ): Promise<CleanupResult[]> {
