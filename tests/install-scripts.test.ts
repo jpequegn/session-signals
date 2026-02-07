@@ -195,16 +195,17 @@ describe("hook removal", () => {
     await runBunScript(`
       const fs = require('fs');
       const path = process.env.SETTINGS_PATH;
+      const hookFilter = process.env.HOOK_FILTER;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
-        (entry) => !entry.hooks?.some((h) => h.command?.includes('signal-tagger'))
+        (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
       if (settings.hooks.SessionEnd.length === 0) delete settings.hooks.SessionEnd;
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `, { SETTINGS_PATH: settingsPath });
+    `, { SETTINGS_PATH: settingsPath, HOOK_FILTER: "signal-tagger" });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks.SessionEnd).toHaveLength(1);
@@ -226,16 +227,17 @@ describe("hook removal", () => {
     await runBunScript(`
       const fs = require('fs');
       const path = process.env.SETTINGS_PATH;
+      const hookFilter = process.env.HOOK_FILTER;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
-        (entry) => !entry.hooks?.some((h) => h.command?.includes('signal-tagger'))
+        (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
       if (settings.hooks.SessionEnd.length === 0) delete settings.hooks.SessionEnd;
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `, { SETTINGS_PATH: settingsPath });
+    `, { SETTINGS_PATH: settingsPath, HOOK_FILTER: "signal-tagger" });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks).toBeUndefined();
@@ -259,16 +261,17 @@ describe("hook removal", () => {
     await runBunScript(`
       const fs = require('fs');
       const path = process.env.SETTINGS_PATH;
+      const hookFilter = process.env.HOOK_FILTER;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
-        (entry) => !entry.hooks?.some((h) => h.command?.includes('signal-tagger'))
+        (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
       if (settings.hooks.SessionEnd.length === 0) delete settings.hooks.SessionEnd;
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `, { SETTINGS_PATH: settingsPath });
+    `, { SETTINGS_PATH: settingsPath, HOOK_FILTER: "signal-tagger" });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks).toBeDefined();
@@ -290,16 +293,17 @@ describe("hook removal", () => {
     await runBunScript(`
       const fs = require('fs');
       const path = process.env.SETTINGS_PATH;
+      const hookFilter = process.env.HOOK_FILTER;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
-        (entry) => !entry.hooks?.some((h) => h.command?.includes('signal-tagger'))
+        (entry) => !entry.hooks?.some((h) => h.command?.includes(hookFilter))
       );
       if (settings.hooks.SessionEnd.length === 0) delete settings.hooks.SessionEnd;
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `, { SETTINGS_PATH: settingsPath });
+    `, { SETTINGS_PATH: settingsPath, HOOK_FILTER: "signal-tagger" });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks.SessionEnd).toHaveLength(1);
