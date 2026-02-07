@@ -173,6 +173,11 @@ describe("findExistingIssue", () => {
     const output = "SS-1  closed  [signals] Shell failures";
     expect(findExistingIssue(output, "[signals] Shell failures")).toBeNull();
   });
+
+  it("matches when a status word appears between ID and title", () => {
+    const output = "SS-1  open  [signals] Shell failures";
+    expect(findExistingIssue(output, "[signals] Shell failures")).toBe("SS-1");
+  });
 });
 
 // ── buildUpdateComment / buildTrendComment ──────────────────────────
@@ -315,6 +320,25 @@ describe("executeBeadsAction", () => {
     const cli = mockCli({
       search: async () => "SS-42  [signals] Repeated shell failures in tests",
       addComment: async () => { throw new Error("Comment failed"); },
+    });
+    const warnings: string[] = [];
+
+    const results = await executeBeadsAction(
+      [makePattern()],
+      defaultConfig,
+      { cli, warn: (msg) => warnings.push(msg) },
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.action).toBe("skipped");
+    expect(results[0]!.reason).toContain("Error");
+    expect(warnings.length).toBeGreaterThan(0);
+  });
+
+  it("handles create failure gracefully", async () => {
+    const cli = mockCli({
+      search: async () => "",
+      create: async () => { throw new Error("Create failed"); },
     });
     const warnings: string[] = [];
 

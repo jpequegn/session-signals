@@ -95,11 +95,16 @@ export function findExistingIssue(searchOutput: string, title: string): string |
     const match = line.match(/^(\w+-\d+)/);
     if (!match?.[1]) continue;
 
-    const rest = line.slice(match[0].length).trim();
+    let rest = line.slice(match[0].length).trim();
 
     // Skip closed issues: check for "closed" status between ID and title,
     // not the whole line (avoids false positives if the title contains "closed")
     if (/^closed\b/i.test(rest)) continue;
+
+    // Strip any status word (e.g. "open", "in_progress") between the ID and title
+    // so that lines like "SS-1  open  [signals] Shell failures" still match.
+    const statusMatch = rest.match(/^(open|in_progress|pending|active|new)\b\s*/i);
+    if (statusMatch) rest = rest.slice(statusMatch[0].length);
 
     // Match title at start of remaining text (after issue ID).
     // Exact match, or match ignoring trailing whitespace (e.g. single trailing space).
@@ -118,9 +123,10 @@ export function findExistingIssue(searchOutput: string, title: string): string |
 
 // ── Comment builders ────────────────────────────────────────────────
 
-export function buildUpdateComment(pattern: Pattern): string {
+export function buildUpdateComment(pattern: Pattern, date?: string): string {
+  const d = date ?? new Date().toISOString().slice(0, 10);
   const lines = [
-    `**Signal update** (${new Date().toISOString().slice(0, 10)})`,
+    `**Signal update** (${d})`,
     "",
     `- **Severity:** ${pattern.severity}`,
     `- **Frequency:** ${pattern.frequency} sessions`,
@@ -137,10 +143,11 @@ export function buildUpdateComment(pattern: Pattern): string {
   return lines.join("\n");
 }
 
-export function buildTrendComment(pattern: Pattern): string {
+export function buildTrendComment(pattern: Pattern, date?: string): string {
+  const d = date ?? new Date().toISOString().slice(0, 10);
   if (pattern.trend === "decreasing") {
     const lines = [
-      `**Trend improving** (${new Date().toISOString().slice(0, 10)}): This pattern is decreasing in frequency (${pattern.frequency} sessions). May resolve on its own.`,
+      `**Trend improving** (${d}): This pattern is decreasing in frequency (${pattern.frequency} sessions). May resolve on its own.`,
     ];
     if (pattern.root_cause_hypothesis) {
       lines.push(`- **Root cause hypothesis:** ${pattern.root_cause_hypothesis}`);
@@ -175,21 +182,23 @@ export async function executeBeadsAction(
     return patterns.map((p) => ({
       pattern_id: p.id,
       action: "skipped" as const,
+      issue_title: buildIssueTitle(p, config.title_prefix),
       reason: "bd CLI not available",
     }));
   }
 
   for (const pattern of patterns) {
+    const title = buildIssueTitle(pattern, config.title_prefix);
+
     if (!meetsThreshold(pattern, config)) {
       results.push({
         pattern_id: pattern.id,
         action: "skipped",
+        issue_title: title,
         reason: `Below threshold (severity=${pattern.severity}, frequency=${pattern.frequency})`,
       });
       continue;
     }
-
-    const title = buildIssueTitle(pattern, config.title_prefix);
 
     try {
       // Search by description only to avoid bracket syntax issues in bd search.
