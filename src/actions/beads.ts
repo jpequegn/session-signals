@@ -93,11 +93,14 @@ export function findExistingIssue(searchOutput: string, title: string): string |
   for (const line of lines) {
     // Skip closed issues
     if (/\bclosed\b/i.test(line)) continue;
-    if (!line.includes(title)) continue;
 
     // Extract issue ID — typically the first token (e.g. "SS-1", "PROJ-42")
     const match = line.match(/^([A-Z]+-\d+|[a-z]+-\d+|\S+)/);
-    if (match?.[1]) return match[1];
+    if (!match?.[1]) continue;
+
+    // Exact title match: strip the issue ID (and surrounding whitespace) then compare
+    const rest = line.slice(match[0].length).trim();
+    if (rest === title) return match[1];
   }
 
   return null;
@@ -170,8 +173,9 @@ export async function executeBeadsAction(
     const title = buildIssueTitle(pattern, config.title_prefix);
 
     try {
-      // Check for existing issue by full title
-      const searchResult = await cli.search(title);
+      // Search by description to avoid bracket syntax issues in bd search;
+      // exact title match happens client-side in findExistingIssue
+      const searchResult = await cli.search(pattern.description);
       const existingId = findExistingIssue(searchResult, title);
 
       if (existingId) {

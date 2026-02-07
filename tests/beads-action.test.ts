@@ -143,6 +143,11 @@ describe("findExistingIssue", () => {
     const output = "SS-1  closed  [signals] Shell failures";
     expect(findExistingIssue(output, "[signals] Shell failures")).toBeNull();
   });
+
+  it("rejects substring matches (exact title only)", () => {
+    const output = "SS-1  [signals] Shell failures in CI pipeline";
+    expect(findExistingIssue(output, "[signals] Shell failures")).toBeNull();
+  });
 });
 
 // ── buildUpdateComment / buildTrendComment ──────────────────────────
@@ -184,6 +189,11 @@ describe("buildTrendComment", () => {
 // ── executeBeadsAction ──────────────────────────────────────────────
 
 describe("executeBeadsAction", () => {
+  it("returns empty for empty patterns array", async () => {
+    const results = await executeBeadsAction([], defaultConfig, { cli: mockCli() });
+    expect(results).toEqual([]);
+  });
+
   it("returns empty when config is disabled", async () => {
     const results = await executeBeadsAction(
       [makePattern()],
@@ -273,7 +283,7 @@ describe("executeBeadsAction", () => {
     expect(results[0]!.action).toBe("updated");
     expect(commentedId).toBe("SS-42");
     expect(commentText).toContain("Signal update");
-    expect(searchedQuery).toBe("[signals] Repeated shell failures in tests");
+    expect(searchedQuery).toBe("Repeated shell failures in tests");
   });
 
   it("handles CLI errors gracefully", async () => {
