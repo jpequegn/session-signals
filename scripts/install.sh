@@ -1,0 +1,278 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ── Session Signals Installer ────────────────────────────────────────
+# Idempotent: safe to run multiple times.
+# Sets up:
+#   1. Directories for signals and digests
+#   2. Symlink for signal-tagger entry point
+#   3. Claude Code SessionEnd hook in settings.json
+#   4. launchd plist for daily analysis
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+SIGNALS_DIR="$HOME/.claude/signals"
+SIGNALS_HISTORY_DIR="$HOME/.claude/history/signals"
+DIGESTS_DIR="$HOME/.claude/history/signals/digests"
+SETTINGS_FILE="$HOME/.claude/settings.json"
+PLIST_LABEL="com.session-signals.daily-analysis"
+PLIST_DIR="$HOME/Library/LaunchAgents"
+PLIST_FILE="$PLIST_DIR/$PLIST_LABEL.plist"
+
+# ── Colors ───────────────────────────────────────────────────────────
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+info()  { echo -e "${GREEN}[install]${NC} $1"; }
+warn()  { echo -e "${YELLOW}[install]${NC} $1"; }
+error() { echo -e "${RED}[install]${NC} $1" >&2; }
+
+# ── Prerequisite checks ─────────────────────────────────────────────
+
+check_prerequisites() {
+  local missing=0
+
+  if ! command -v bun &>/dev/null; then
+    error "bun is not installed. Install it: https://bun.sh"
+    missing=1
+  fi
+
+  if ! command -v ollama &>/dev/null; then
+    warn "ollama is not installed. Pattern analysis requires it: https://ollama.com"
+    warn "The signal tagger will still work without ollama."
+  fi
+
+  if [[ $missing -eq 1 ]]; then
+    exit 1
+  fi
+}
+
+# ── Directory setup ──────────────────────────────────────────────────
+
+setup_directories() {
+  info "Creating directories..."
+
+  mkdir -p "$HOME/.claude"
+  mkdir -p "$SIGNALS_DIR"
+  mkdir -p "$SIGNALS_HISTORY_DIR"
+  mkdir -p "$DIGESTS_DIR"
+
+  info "Directories ready."
+}
+
+# ── Symlink signal-tagger ────────────────────────────────────────────
+
+setup_symlink() {
+  local source="$PROJECT_DIR/src/signal-tagger.ts"
+  local target="$SIGNALS_DIR/signal-tagger.ts"
+
+  if [[ ! -f "$source" ]]; then
+    error "Source file not found: $source"
+    exit 1
+  fi
+
+  if [[ -L "$target" ]]; then
+    local existing
+    existing="$(readlink "$target")"
+    if [[ "$existing" == "$source" ]]; then
+      info "Symlink already exists and is correct."
+      return
+    fi
+    warn "Symlink exists but points to $existing — updating."
+    rm "$target"
+  elif [[ -f "$target" ]]; then
+    warn "Regular file exists at $target — replacing with symlink."
+    rm "$target"
+  fi
+
+  ln -s "$source" "$target"
+  chmod +x "$source"
+  info "Symlinked signal-tagger.ts"
+}
+
+# ── Claude Code hook registration ────────────────────────────────────
+
+setup_hook() {
+  # Resolve bun's absolute path at install time so the hook works even if
+  # Claude Code's runtime PATH doesn't include bun. Tradeoff: if bun moves
+  # after install, re-run install.sh to update the path.
+  local bun_path
+  bun_path="$(command -v bun)" || { error "bun not found on PATH. Install bun first."; exit 1; }
+  local hook_command="$bun_path $SIGNALS_DIR/signal-tagger.ts"
+
+  # Create settings.json if it doesn't exist
+  if [[ ! -f "$SETTINGS_FILE" ]]; then
+    echo '{}' > "$SETTINGS_FILE"
+    info "Created $SETTINGS_FILE"
+  fi
+
+  # Use bun to safely merge the hook entry (non-destructive).
+  # Note: no advisory lock is taken — avoid running install while Claude Code
+  # is actively writing to settings.json, or changes may be lost.
+  SETTINGS_PATH="$SETTINGS_FILE" HOOK_CMD="$hook_command" bun -e "
+    const fs = require('fs');
+    const path = process.env.SETTINGS_PATH;
+    const hookCmd = process.env.HOOK_CMD;
+
+    let settings;
+    try {
+      settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
+    } catch {
+      settings = {};
+    }
+
+    // Ensure hooks.SessionEnd exists
+    if (!settings.hooks) settings.hooks = {};
+    if (!settings.hooks.SessionEnd) {
+      settings.hooks.SessionEnd = [];
+    }
+
+    // Check if our hook is already registered
+    const existing = settings.hooks.SessionEnd.find(
+      (entry) => entry.hooks?.some((h) => h.command?.includes('signal-tagger'))
+    );
+
+    if (existing) {
+      console.log('[install] SessionEnd hook already registered.');
+      process.exit(0);
+    }
+
+    // Add our hook entry
+    settings.hooks.SessionEnd.push({
+      matcher: '',
+      hooks: [
+        {
+          type: 'command',
+          command: hookCmd,
+          timeout: 15, // seconds
+        },
+      ],
+    });
+
+    const tmpPath = path + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    fs.renameSync(tmpPath, path);
+    console.log('[install] SessionEnd hook registered in settings.json');
+  "
+}
+
+# ── Helpers ──────────────────────────────────────────────────────────
+
+xml_escape() {
+  local s="$1"
+  s="${s//&/&amp;}"
+  s="${s//</&lt;}"
+  s="${s//>/&gt;}"
+  s="${s//\"/&quot;}"
+  s="${s//\'/&apos;}"
+  printf '%s' "$s"
+}
+
+# Reject paths containing shell metacharacters that would be misinterpreted
+# inside the unquoted heredoc used for plist generation.
+validate_path() {
+  local p="$1"
+  local label="$2"
+  if [[ "$p" == *'$'* || "$p" == *'`'* ]]; then
+    error "$label contains shell metacharacters (\$ or \`): $p"
+    exit 1
+  fi
+}
+
+# ── launchd plist ────────────────────────────────────────────────────
+
+setup_launchd() {
+  local bun_path
+  bun_path="$(command -v bun)" || { error "bun not found on PATH. Install bun first."; exit 1; }
+  local analyzer_path="$PROJECT_DIR/src/pattern-analyzer.ts"
+  local log_dir="$HOME/Library/Logs/session-signals"
+  mkdir -p "$log_dir"
+  local log_path="$log_dir/session-signals.log"
+  local error_log_path="$log_dir/session-signals-error.log"
+
+  validate_path "$bun_path" "bun path"
+  validate_path "$analyzer_path" "analyzer path"
+  validate_path "$log_dir" "log directory"
+  validate_path "$PROJECT_DIR" "project directory"
+
+  mkdir -p "$PLIST_DIR"
+
+  # Remove existing plist if loaded (ignore errors)
+  local domain="gui/$(id -u)"
+  launchctl bootout "$domain/$PLIST_LABEL" 2>/dev/null || true
+
+  cat > "$PLIST_FILE" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$(xml_escape "$PLIST_LABEL")</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$(xml_escape "$bun_path")</string>
+        <string>$(xml_escape "$analyzer_path")</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>0</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>$(xml_escape "$log_path")</string>
+    <key>StandardErrorPath</key>
+    <string>$(xml_escape "$error_log_path")</string>
+    <key>WorkingDirectory</key>
+    <string>$(xml_escape "$PROJECT_DIR")</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>$(xml_escape "/usr/local/bin:/usr/bin:/bin:$(dirname "$bun_path")")</string>
+        <key>HOME</key>
+        <string>$(xml_escape "$HOME")</string>
+    </dict>
+</dict>
+</plist>
+PLIST
+
+  launchctl bootstrap "$domain" "$PLIST_FILE"
+  info "launchd plist installed and loaded."
+  # Note: if the machine is asleep at midnight, launchd will run the job on
+  # wake — but only the next scheduled occurrence, not missed ones. Missing a
+  # day of analysis is acceptable for this use case.
+  info "Daily analysis will run at midnight."
+}
+
+# ── Main ─────────────────────────────────────────────────────────────
+
+main() {
+  info "Session Signals Installer"
+  info "Project: $PROJECT_DIR"
+  echo ""
+
+  check_prerequisites
+  setup_directories
+  setup_symlink
+  setup_hook
+  setup_launchd
+
+  echo ""
+  info "Installation complete!"
+  info ""
+  info "What was set up:"
+  info "  - Signal tagger: $SIGNALS_DIR/signal-tagger.ts"
+  info "  - Claude Code hook: SessionEnd in $SETTINGS_FILE"
+  info "  - Daily analysis: $PLIST_FILE (runs at midnight)"
+  info "  - Signal data: $SIGNALS_HISTORY_DIR/"
+  info "  - Digest output: $DIGESTS_DIR/"
+  info ""
+  info "To uninstall: $SCRIPT_DIR/uninstall.sh"
+}
+
+main "$@"
