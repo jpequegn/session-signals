@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { GeminiCliAdapter } from "../src/adapters/gemini-cli.js";
+import type { HarnessAdapter } from "../src/adapters/types.js";
 
 function makeSession(history: Record<string, unknown>[]): string {
   return JSON.stringify({ history });
@@ -271,6 +272,21 @@ describe("GeminiCliAdapter", () => {
       expect(prompts).toHaveLength(1);
     });
 
+    it("warns for object entries without a role property", () => {
+      const raw = JSON.stringify({ history: [{}, { parts: [] }, userText("valid")] });
+      const warnings: string[] = [];
+      const warnAdapter = new GeminiCliAdapter({
+        eventsDir: "/nonexistent",
+        warn: (msg) => warnings.push(msg),
+      });
+      const events = warnAdapter.parseEvents(raw);
+      const prompts = events.filter((e) => e.type === "user_prompt");
+      expect(prompts).toHaveLength(1);
+      expect(warnings).toHaveLength(2);
+      expect(warnings[0]).toContain("without role");
+      expect(warnings[1]).toContain("without role");
+    });
+
     it("skips null and non-object entries in history", () => {
       const raw = JSON.stringify({ history: [null, 42, "string", userText("valid")] });
       const warnings: string[] = [];
@@ -299,6 +315,15 @@ describe("GeminiCliAdapter", () => {
     it("uses provided sessionId when given", () => {
       const events = adapter.parseEvents(makeSession([userText("hello")]), "my-session");
       expect(events[0]!.session_id).toBe("my-session");
+    });
+
+    it("works when called through the HarnessAdapter interface (no sessionId)", () => {
+      const iface: HarnessAdapter = adapter;
+      const events = iface.parseEvents(makeSession([userText("via interface")]));
+      const prompts = events.filter((e) => e.type === "user_prompt");
+      expect(prompts).toHaveLength(1);
+      expect(prompts[0]!.message).toBe("via interface");
+      expect(prompts[0]!.session_id).toBe("unknown");
     });
   });
 
@@ -441,6 +466,32 @@ describe("GeminiCliAdapter", () => {
       expect(events).toEqual([]);
       expect(warnings.length).toBe(1);
       expect(warnings[0]).toContain("failed to parse");
+    });
+
+    it("discovers sessions across multiple project directories", async () => {
+      const project1 = join(tmpDir, "project1");
+      const project2 = join(tmpDir, "project2");
+      await mkdir(join(project1, "chats"), { recursive: true });
+      await mkdir(join(project2, "chats"), { recursive: true });
+
+      await writeFile(
+        join(project1, "chats", "session-2026-01-01T09-00-aaaa1111.json"),
+        makeSession([userText("from project1")]),
+      );
+      await writeFile(
+        join(project2, "chats", "session-2026-01-02T10-00-bbbb2222.json"),
+        makeSession([userText("from project2")]),
+      );
+
+      const tmpAdapter = new GeminiCliAdapter({ eventsDir: tmpDir, warn: () => {} });
+
+      const events1 = await tmpAdapter.getSessionEvents("session-2026-01-01T09-00-aaaa1111");
+      expect(events1.length).toBeGreaterThan(0);
+      expect(events1.find((e) => e.type === "user_prompt")?.message).toBe("from project1");
+
+      const events2 = await tmpAdapter.getSessionEvents("session-2026-01-02T10-00-bbbb2222");
+      expect(events2.length).toBeGreaterThan(0);
+      expect(events2.find((e) => e.type === "user_prompt")?.message).toBe("from project2");
     });
 
     it("ignores non-session files", async () => {

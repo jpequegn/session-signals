@@ -256,9 +256,13 @@ export class GeminiCliAdapter implements HarnessAdapter {
         this.warn(`gemini-cli adapter: skipping invalid content at index ${i}`);
         continue;
       }
-      if (!content.role) continue;
+      if (!content.role) {
+        this.warn(`gemini-cli adapter: skipping content without role at index ${i}`);
+        continue;
+      }
 
-      // Offset each content entry by 1000ms to leave room for per-part offsets within an entry
+      // Offset each content entry by 1000ms to leave room for per-part offsets (max 999) within an entry.
+      // This scheme is safe for any number of history entries since per-part offsets never exceed 999ms.
       const entryTs = new Date(new Date(ts).getTime() + (i + 1) * 1000).toISOString();
       const normalized = contentToEvents(content, sessionId, entryTs, i);
       events.push(...normalized);
