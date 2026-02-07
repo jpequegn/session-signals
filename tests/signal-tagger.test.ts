@@ -69,6 +69,10 @@ function tsSec(secondOffset: number): string {
   return d.toISOString();
 }
 
+beforeEach(() => {
+  idCounter = 0;
+});
+
 // ── isHookInput ─────────────────────────────────────────────────────
 
 describe("isHookInput", () => {

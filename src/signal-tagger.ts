@@ -38,4 +38,8 @@ async function main(): Promise<void> {
 }
 
 // Silent failure — never block the coding agent
-main().catch(() => {});
+main().catch((err) => {
+  if (process.env["ROBOREV_DEBUG"]) {
+    console.error("[signal-tagger]", err);
+  }
+});

@@ -36,9 +36,9 @@ export function isHookInput(obj: unknown): obj is HookInput {
 export function detectHarness(input: HookInput, config: Config): HarnessType | null {
   // If transcript_path hints at the harness, use that
   const tp = input.transcript_path ?? "";
-  if (tp.includes(".claude")) return "claude_code";
-  if (tp.includes(".gemini")) return "gemini_cli";
-  if (tp.includes(".pi")) return "pi_coding_agent";
+  if (tp.includes("/.claude/")) return "claude_code";
+  if (tp.includes("/.gemini/")) return "gemini_cli";
+  if (tp.includes("/.pi/")) return "pi_coding_agent";
 
   // Check environment variables
   if (process.env["CLAUDE_CODE_SESSION"]) return "claude_code";
@@ -88,7 +88,7 @@ export function resolveScope(cwd: string, config: Config): Scope {
   );
 
   for (const paiPath of expandedPaiPaths) {
-    if (cwd.startsWith(paiPath)) return "pai";
+    if (cwd === paiPath || cwd.startsWith(paiPath + "/")) return "pai";
   }
 
   return `project:${cwd}`;
@@ -143,14 +143,15 @@ export function signalsOutputDir(): string {
   return join(homedir(), ".claude", "history", "signals");
 }
 
-export function signalsFilePath(): string {
-  const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return join(signalsOutputDir(), `${date}_signals.jsonl`);
+export function signalsFilePath(date?: string): string {
+  const d = date ?? new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return join(signalsOutputDir(), `${d}_signals.jsonl`);
 }
 
 export async function writeSignalRecord(record: SignalRecord): Promise<void> {
   const dir = signalsOutputDir();
   await mkdir(dir, { recursive: true });
+  const date = record.timestamp.slice(0, 10);
   const line = JSON.stringify(record) + "\n";
-  await appendFile(signalsFilePath(), line, "utf-8");
+  await appendFile(signalsFilePath(date), line, "utf-8");
 }
