@@ -204,6 +204,13 @@ export interface ActionsConfig {
   autofix: AutofixActionConfig;
 }
 
+export interface HarnessConfig {
+  enabled: boolean;
+  events_dir: string;
+}
+
+export type HarnessesConfig = Record<string, HarnessConfig>;
+
 export interface ScopeRulesConfig {
   pai_paths: string[];
   ignore_paths: string[];
@@ -214,5 +221,6 @@ export interface Config {
   tagger: TaggerConfig;
   analyzer: AnalyzerConfig;
   actions: ActionsConfig;
+  harnesses: HarnessesConfig;
   scope_rules: ScopeRulesConfig;
 }

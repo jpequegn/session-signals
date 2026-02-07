@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "bun test"
   },
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^25.2.1",
     "typescript": "^5.7.0"
   }
 }
