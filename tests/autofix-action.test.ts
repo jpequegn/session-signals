@@ -48,6 +48,7 @@ function mockGit(overrides?: Partial<GitOps>): GitOps {
     checkoutBranch: async () => {},
     deleteBranch: async () => {},
     branchAge: async () => 0,
+    hasNewCommits: async () => false,
     ...overrides,
   };
 }
@@ -137,17 +138,23 @@ describe("buildFixPrompt", () => {
 
   it("omits root cause when empty", () => {
     const prompt = buildFixPrompt(makePattern({ root_cause_hypothesis: "" }));
-    expect(prompt).not.toContain("Root cause hypothesis");
+    expect(prompt).not.toContain("Root cause hypothesis:");
   });
 
   it("omits suggested fix when empty", () => {
     const prompt = buildFixPrompt(makePattern({ suggested_fix: "" }));
-    expect(prompt).not.toContain("Suggested fix");
+    expect(prompt).not.toContain("Suggested fix:");
   });
 
   it("omits affected files when empty", () => {
     const prompt = buildFixPrompt(makePattern({ affected_files: [] }));
-    expect(prompt).not.toContain("Affected files");
+    expect(prompt).not.toContain("Affected files:");
+  });
+
+  it("wraps pattern data in a fenced code block", () => {
+    const prompt = buildFixPrompt(makePattern());
+    const fenceCount = (prompt.match(/```/g) || []).length;
+    expect(fenceCount).toBe(2);
   });
 
   it("includes instruction not to merge", () => {
@@ -412,10 +419,13 @@ describe("executeAutofixAction", () => {
     expect(limited).toHaveLength(2);
   });
 
-  it("handles agent failure gracefully", async () => {
+  it("handles agent failure with no commits by deleting branch", async () => {
     const checkedOut: string[] = [];
+    const deleted: string[] = [];
     const git = mockGit({
       checkoutBranch: async (name) => { checkedOut.push(name); },
+      hasNewCommits: async () => false,
+      deleteBranch: async (name) => { deleted.push(name); },
     });
     const agent = mockAgent({
       run: async () => { throw new Error("Agent crashed"); },
@@ -430,10 +440,35 @@ describe("executeAutofixAction", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]!.action).toBe("skipped");
-    expect(results[0]!.reason).toContain("Agent failed");
+    expect(results[0]!.reason).toContain("branch deleted");
+    expect(results[0]!.branch).toBeUndefined();
+    expect(deleted).toContain("signals/fix-pat-20260205-001");
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(checkedOut).toContain("main");
+  });
+
+  it("handles agent failure with partial commits by retaining branch", async () => {
+    const checkedOut: string[] = [];
+    const git = mockGit({
+      checkoutBranch: async (name) => { checkedOut.push(name); },
+      hasNewCommits: async () => true,
+    });
+    const agent = mockAgent({
+      run: async () => { throw new Error("Agent crashed"); },
+    });
+    const warnings: string[] = [];
+
+    const results = await executeAutofixAction(
+      [makePattern()],
+      defaultConfig,
+      { git, agent, warn: (msg) => warnings.push(msg) },
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.action).toBe("skipped");
+    expect(results[0]!.reason).toContain("branch retained");
     expect(results[0]!.branch).toBeDefined();
     expect(warnings.length).toBeGreaterThan(0);
-    // Still returns to original branch
     expect(checkedOut).toContain("main");
   });
 

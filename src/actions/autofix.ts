@@ -31,6 +31,7 @@ export interface GitOps {
   checkoutBranch(name: string): Promise<void>;
   deleteBranch(name: string): Promise<void>;
   branchAge(name: string): Promise<number>;
+  hasNewCommits(branch: string, base: string): Promise<boolean>;
 }
 
 export interface AgentRunner {
@@ -98,9 +99,18 @@ export function createGitOps(cwd?: string): GitOps {
         cwd,
       );
       const commitEpoch = parseInt(timestamp, 10);
+      // Unparseable timestamp → Infinity so cleanup treats it as expired
       if (isNaN(commitEpoch)) return Infinity;
       const nowEpoch = Math.floor(Date.now() / 1000);
       return Math.floor((nowEpoch - commitEpoch) / 86400);
+    },
+
+    async hasNewCommits(branch: string, base: string): Promise<boolean> {
+      const count = await runGit(
+        ["rev-list", "--count", `${base}..${branch}`],
+        cwd,
+      );
+      return parseInt(count, 10) > 0;
     },
   };
 }
@@ -151,23 +161,27 @@ export function buildFixPrompt(pattern: Pattern): string {
   const lines = [
     "You are fixing a detected friction pattern in this codebase.",
     "",
-    `## Pattern: ${pattern.description}`,
+    "## Pattern Details",
     "",
-    `- **Type:** ${pattern.type}`,
-    `- **Severity:** ${pattern.severity}`,
-    `- **Frequency:** ${pattern.frequency} sessions affected`,
-    `- **Trend:** ${pattern.trend}`,
+    "```",
+    `Description: ${pattern.description}`,
+    `Type: ${pattern.type}`,
+    `Severity: ${pattern.severity}`,
+    `Frequency: ${pattern.frequency} sessions affected`,
+    `Trend: ${pattern.trend}`,
   ];
 
   if (pattern.root_cause_hypothesis) {
-    lines.push(`- **Root cause hypothesis:** ${pattern.root_cause_hypothesis}`);
+    lines.push(`Root cause hypothesis: ${pattern.root_cause_hypothesis}`);
   }
   if (pattern.suggested_fix) {
-    lines.push(`- **Suggested fix:** ${pattern.suggested_fix}`);
+    lines.push(`Suggested fix: ${pattern.suggested_fix}`);
   }
   if (pattern.affected_files.length > 0) {
-    lines.push(`- **Affected files:** ${pattern.affected_files.join(", ")}`);
+    lines.push(`Affected files: ${pattern.affected_files.join(", ")}`);
   }
+
+  lines.push("```");
 
   lines.push("");
   lines.push("## Instructions");
@@ -248,11 +262,13 @@ export async function executeAutofixAction(
     agent?: AgentRunner;
     warn?: (msg: string) => void;
     maxPerRun?: number;
+    cwd?: string;
   },
 ): Promise<AutofixResult[]> {
   if (!config.enabled) return [];
 
-  const git = options?.git ?? createGitOps();
+  const cwd = options?.cwd ?? process.cwd();
+  const git = options?.git ?? createGitOps(cwd);
   const agent = options?.agent ?? createAgentRunner();
   const warn = options?.warn ?? console.warn;
   const maxPerRun = options?.maxPerRun ?? 3;
@@ -322,7 +338,7 @@ export async function executeAutofixAction(
       const prompt = buildFixPrompt(pattern);
 
       try {
-        await agent.run(prompt, config.allowed_tools, process.cwd());
+        await agent.run(prompt, config.allowed_tools, cwd);
         fixCount++;
         results.push({
           pattern_id: pattern.id,
@@ -331,12 +347,24 @@ export async function executeAutofixAction(
         });
       } catch (err) {
         warn(`autofix action: agent failed for pattern ${pattern.id}: ${err}`);
-        results.push({
-          pattern_id: pattern.id,
-          action: "skipped",
-          branch: branchName,
-          reason: `Agent failed; branch retained to prevent retries: ${err}`,
-        });
+        // Delete branch if agent made no commits, allowing retry on next run
+        const hasCommits = await git.hasNewCommits(branchName, originalBranch).catch(() => false);
+        if (!hasCommits) {
+          await git.checkoutBranch(originalBranch);
+          await git.deleteBranch(branchName).catch(() => {});
+          results.push({
+            pattern_id: pattern.id,
+            action: "skipped",
+            reason: `Agent failed; branch deleted (no commits): ${err}`,
+          });
+        } else {
+          results.push({
+            pattern_id: pattern.id,
+            action: "skipped",
+            branch: branchName,
+            reason: `Agent failed; branch retained (has partial commits): ${err}`,
+          });
+        }
       }
 
       // Always return to original branch
