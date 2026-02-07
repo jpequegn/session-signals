@@ -81,6 +81,17 @@ export {
 export type { DigestInput, DigestResult } from "./actions/digest.js";
 export { generateDigestMarkdown, executeDigestAction } from "./actions/digest.js";
 
+export type { AutofixResult, CleanupResult, GitOps, AgentRunner } from "./actions/autofix.js";
+export {
+  createGitOps,
+  createAgentRunner,
+  meetsAutoFixThreshold,
+  buildFixPrompt,
+  buildBranchName,
+  cleanupExpiredBranches,
+  executeAutofixAction,
+} from "./actions/autofix.js";
+
 export {
   levenshteinRatio,
   detectRephraseStorm,
