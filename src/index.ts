@@ -78,6 +78,9 @@ export {
   executeBeadsAction,
 } from "./actions/beads.js";
 
+export type { DigestInput, DigestResult } from "./actions/digest.js";
+export { generateDigestMarkdown, executeDigestAction } from "./actions/digest.js";
+
 export {
   levenshteinRatio,
   detectRephraseStorm,
