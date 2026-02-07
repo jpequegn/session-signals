@@ -176,6 +176,31 @@ describe("ClaudeCodeAdapter", () => {
       expect(events[0]!.tool_name).toBe("web_access");
     });
 
+    it("maps NotebookEdit to file_edit", () => {
+      const events = adapter.parseEvents(jsonl(makeEvent({ payload: { tool_name: "NotebookEdit" } })));
+      expect(events[0]!.tool_name).toBe("file_edit");
+    });
+
+    it("maps NotebookRead to file_read", () => {
+      const events = adapter.parseEvents(jsonl(makeEvent({ payload: { tool_name: "NotebookRead" } })));
+      expect(events[0]!.tool_name).toBe("file_read");
+    });
+
+    it("maps LSP to lsp", () => {
+      const events = adapter.parseEvents(jsonl(makeEvent({ payload: { tool_name: "LSP" } })));
+      expect(events[0]!.tool_name).toBe("lsp");
+    });
+
+    it("maps AskUserQuestion to user_interaction", () => {
+      const events = adapter.parseEvents(jsonl(makeEvent({ payload: { tool_name: "AskUserQuestion" } })));
+      expect(events[0]!.tool_name).toBe("user_interaction");
+    });
+
+    it("maps Skill to skill", () => {
+      const events = adapter.parseEvents(jsonl(makeEvent({ payload: { tool_name: "Skill" } })));
+      expect(events[0]!.tool_name).toBe("skill");
+    });
+
     it("lowercases unknown tool names", () => {
       const events = adapter.parseEvents(jsonl(makeEvent({ payload: { tool_name: "CustomTool" } })));
       expect(events[0]!.tool_name).toBe("customtool");
