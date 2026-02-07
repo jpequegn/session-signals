@@ -13,6 +13,7 @@ import type { BeadsActionResult } from "../src/actions/beads.js";
 import {
   generateDigestMarkdown,
   executeDigestAction,
+  resolveDir,
 } from "../src/actions/digest.js";
 import type { DigestInput } from "../src/actions/digest.js";
 
@@ -616,25 +617,11 @@ describe("executeDigestAction", () => {
     }
   });
 
-  it("expands ~/ prefix in output_dir to home directory", async () => {
-    const subdir = `digest-test-${Date.now()}`;
-    const input = makeInput({
-      config: makeConfig({
-        actions: {
-          beads: { enabled: true, min_severity: "medium", min_frequency: 2, title_prefix: "[signals]" },
-          digest: { enabled: true, output_dir: `~/${subdir}` },
-          autofix: { enabled: false, min_severity: "high", min_frequency: 3, branch_prefix: "signals/fix-", branch_ttl_days: 7, allowed_tools: [] },
-        },
-      }),
-    });
+  it("expands ~/ prefix in output_dir to home directory", () => {
+    expect(resolveDir("~/foo/bar")).toBe(join(homedir(), "foo/bar"));
+  });
 
-    const expandedDir = join(homedir(), subdir);
-    try {
-      const result = await executeDigestAction(input);
-      expect(result).not.toBeNull();
-      expect(result!.path).toStartWith(expandedDir);
-    } finally {
-      await rm(expandedDir, { recursive: true, force: true });
-    }
+  it("leaves absolute paths unchanged", () => {
+    expect(resolveDir("/tmp/digest")).toBe("/tmp/digest");
   });
 });

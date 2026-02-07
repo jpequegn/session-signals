@@ -27,7 +27,7 @@ export interface DigestResult {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function resolveDir(dir: string): string {
+export function resolveDir(dir: string): string {
   if (dir.startsWith("~/")) {
     return join(homedir(), dir.slice(2));
   }
@@ -39,7 +39,10 @@ function severityEmoji(severity: Severity): string {
     case "high": return "🔴";
     case "medium": return "🟡";
     case "low": return "🟢";
-    default: return severity satisfies never;
+    default: {
+      const _exhaustive: never = severity;
+      return _exhaustive;
+    }
   }
 }
 
@@ -49,7 +52,10 @@ function trendArrow(trend: PatternTrend): string {
     case "stable": return "→";
     case "decreasing": return "↘️";
     case "new": return "🆕";
-    default: return trend satisfies never;
+    default: {
+      const _exhaustive: never = trend;
+      return _exhaustive;
+    }
   }
 }
 
