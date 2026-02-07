@@ -111,7 +111,7 @@ function extractToolResult(event: ClaudeCodeRawEvent): NormalizedEvent["tool_res
     if (typeof result === "object" && result !== null) {
       const r = result as Record<string, unknown>;
       const out: { success: boolean; output?: string; error?: string } = {
-        success: r["success"] === true && r["error"] === undefined,
+        success: r["error"] === undefined,
       };
       if (typeof r["output"] === "string") out.output = r["output"];
       if (typeof r["error"] === "string") out.error = r["error"];
@@ -240,20 +240,25 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
     const allEvents: NormalizedEvent[] = [];
     const jsonlFiles = await this.findJsonlFiles();
 
-    const results = await Promise.allSettled(
-      jsonlFiles.map((file) => readFile(file, "utf-8")),
-    );
+    const BATCH_SIZE = 20;
+    for (let start = 0; start < jsonlFiles.length; start += BATCH_SIZE) {
+      const batch = jsonlFiles.slice(start, start + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((file) => readFile(file, "utf-8")),
+      );
 
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i]!;
-      if (result.status === "rejected") {
-        this.warn(`claude-code adapter: failed to read ${jsonlFiles[i]}: ${result.reason}`);
-        continue;
-      }
-      const events = this.parseEvents(result.value);
-      for (const event of events) {
-        if (event.session_id === sessionId) {
-          allEvents.push(event);
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i]!;
+        const filePath = batch[i]!;
+        if (result.status === "rejected") {
+          this.warn(`claude-code adapter: failed to read ${filePath}: ${result.reason}`);
+          continue;
+        }
+        const events = this.parseEvents(result.value);
+        for (const event of events) {
+          if (event.session_id === sessionId) {
+            allEvents.push(event);
+          }
         }
       }
     }
