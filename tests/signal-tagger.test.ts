@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir, homedir } from "node:os";
 import type { Config, NormalizedEvent } from "../src/lib/types.js";
@@ -11,6 +11,7 @@ import {
   collectSignals,
   buildSignalRecord,
   signalsFilePath,
+  writeSignalRecord,
 } from "../src/lib/tagger.js";
 
 // ── Test config ─────────────────────────────────────────────────────
@@ -359,7 +360,7 @@ describe("writeSignalRecord integration", () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it("buildSignalRecord produces valid JSONL-serializable output with signals", async () => {
+  it("writeSignalRecord writes valid JSONL to the output directory", async () => {
     const events = [
       makeEvent({ type: "session_start", timestamp: tsSec(0) }),
       makeEvent({ type: "compaction", timestamp: tsSec(1) }),
@@ -367,24 +368,21 @@ describe("writeSignalRecord integration", () => {
       makeEvent({ type: "session_end", timestamp: tsSec(10) }),
     ];
     const config = makeConfig();
-    const record = buildSignalRecord("write-test", events, config, "/tmp/test");
+    const record = buildSignalRecord("write-test", events, config, tmpDir);
 
-    // Simulate what writeSignalRecord does: serialize to JSONL and write
-    const outDir = join(tmpDir, "signals");
-    await mkdir(outDir, { recursive: true });
-    const date = record.timestamp.slice(0, 10);
-    const outPath = join(outDir, `${date}_signals.jsonl`);
-    const line = JSON.stringify(record) + "\n";
-    await writeFile(outPath, line, "utf-8");
+    // Call the real writeSignalRecord with tmpDir as outputDir
+    await writeSignalRecord(record, tmpDir);
 
     // Read back and verify
+    const date = record.timestamp.slice(0, 10);
+    const outPath = join(tmpDir, `${date}_signals.jsonl`);
     const content = await readFile(outPath, "utf-8");
     const lines = content.trim().split("\n");
     expect(lines.length).toBe(1);
 
     const parsed = JSON.parse(lines[0]!);
     expect(parsed.session_id).toBe("write-test");
-    expect(parsed.scope).toBe("project:/tmp/test");
+    expect(parsed.scope).toBe(`project:${tmpDir}`);
     expect(parsed.signals.length).toBeGreaterThan(0);
     expect(parsed.signals[0].type).toBe("context_churn");
     expect(parsed.facets).toBeDefined();

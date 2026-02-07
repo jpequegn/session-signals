@@ -159,10 +159,11 @@ export function signalsFilePath(date?: string): string {
   return join(signalsOutputDir(), `${d}_signals.jsonl`);
 }
 
-export async function writeSignalRecord(record: SignalRecord): Promise<void> {
-  const dir = signalsOutputDir();
+export async function writeSignalRecord(record: SignalRecord, outputDir?: string): Promise<void> {
+  const dir = outputDir ?? signalsOutputDir();
   await mkdir(dir, { recursive: true });
   const date = record.timestamp.slice(0, 10);
+  const filePath = join(dir, `${date}_signals.jsonl`);
   const line = JSON.stringify(record) + "\n";
-  await appendFile(signalsFilePath(date), line, "utf-8");
+  await appendFile(filePath, line, "utf-8");
 }
