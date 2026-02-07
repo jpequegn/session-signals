@@ -31,5 +31,7 @@ export { ClaudeCodeAdapter } from "./adapters/claude-code.js";
 export type { ClaudeCodeAdapterOptions } from "./adapters/claude-code.js";
 export { GeminiCliAdapter } from "./adapters/gemini-cli.js";
 export type { GeminiCliAdapterOptions } from "./adapters/gemini-cli.js";
+export { PiCodingAgentAdapter } from "./adapters/pi-coding-agent.js";
+export type { PiCodingAgentAdapterOptions } from "./adapters/pi-coding-agent.js";
 
 export { loadConfig } from "./lib/config.js";
