@@ -285,6 +285,31 @@ describe("Stage 3: Signal record persistence", () => {
     expect(record.facets.outcome).toBe("completed");
   });
 
+  it("appends multiple records to the same date file", async () => {
+    const adapter = new ClaudeCodeAdapter({ eventsDir: "" });
+
+    const rawFriction = await readFile(FRICTION_FIXTURE, "utf-8");
+    const frictionEvents = adapter.parseEvents(rawFriction);
+    const record1 = buildSignalRecord("sess-friction-001", frictionEvents, testConfig, "/home/user/project");
+
+    const rawClean = await readFile(CLEAN_FIXTURE, "utf-8");
+    const cleanEvents = adapter.parseEvents(rawClean);
+    const record2 = buildSignalRecord("sess-clean-001", cleanEvents, testConfig, "/home/user/project");
+
+    // Both fixtures share the same date — write both to the same dir
+    await writeSignalRecord(record1, outputDir);
+    await writeSignalRecord(record2, outputDir);
+
+    const date = record1.timestamp.slice(0, 10);
+    const content = await readFile(join(outputDir, `${date}_signals.jsonl`), "utf-8");
+    const lines = content.trim().split("\n");
+    expect(lines.length).toBe(2);
+
+    const parsed = lines.map((l) => JSON.parse(l) as SignalRecord);
+    const ids = parsed.map((r) => r.session_id).sort();
+    expect(ids).toEqual(["sess-clean-001", "sess-friction-001"]);
+  });
+
   it("scope resolution works for project paths", () => {
     expect(resolveScope("/home/user/project", testConfig)).toBe(
       "project:/home/user/project",
@@ -359,18 +384,21 @@ describe("Stage 4: Trend analysis", () => {
 
     expect(trends.length).toBe(7);
 
-    // Day 1 (2026-01-30): tool_failure_cascade=3
-    expect(trends[0]!.date).toBe("2026-01-30");
-    expect(trends[0]!.counts["tool_failure_cascade"]).toBe(3);
+    // Look up by date to avoid relying on index ordering
+    const byDate = new Map(trends.map((t) => [t.date, t]));
 
-    // Day 5 (2026-02-03): tool_failure_cascade=7, rephrase_storm=5, retry_loop=3
-    expect(trends[4]!.date).toBe("2026-02-03");
-    expect(trends[4]!.counts["tool_failure_cascade"]).toBe(7);
-    expect(trends[4]!.counts["rephrase_storm"]).toBe(5);
+    const day1 = byDate.get("2026-01-30");
+    expect(day1).toBeDefined();
+    expect(day1!.counts["tool_failure_cascade"]).toBe(3);
 
-    // Day 6 (2026-02-04): no signals
-    expect(trends[5]!.date).toBe("2026-02-04");
-    expect(Object.keys(trends[5]!.counts).length).toBe(0);
+    const day5 = byDate.get("2026-02-03");
+    expect(day5).toBeDefined();
+    expect(day5!.counts["tool_failure_cascade"]).toBe(7);
+    expect(day5!.counts["rephrase_storm"]).toBe(5);
+
+    const day6 = byDate.get("2026-02-04");
+    expect(day6).toBeDefined();
+    expect(Object.keys(day6!.counts).length).toBe(0);
   });
 
   it("classifies tool_failure_cascade as increasing", async () => {
@@ -521,6 +549,7 @@ describe("Stage 6: Beads threshold and title integration", () => {
 
   it("findExistingIssue matches constructed title", () => {
     const title = buildIssueTitle(pattern, testConfig.actions.beads.title_prefix);
+    // Format mirrors `beads search` output: "<ID>  <title>"
     const searchOutput = `SS-42  ${title}`;
     expect(findExistingIssue(searchOutput, title)).toBe("SS-42");
   });
@@ -607,8 +636,10 @@ describe("End-to-end pipeline coherence", () => {
     const date = record.timestamp.slice(0, 10);
     const loaded = await loadSignalRecords([date], outputDir);
     expect(loaded.length).toBe(1);
-    expect(loaded[0]!.session_id).toBe("sess-friction-001");
-    expect(loaded[0]!.signals.length).toBe(record.signals.length);
+    const loadedRecord = loaded[0];
+    expect(loadedRecord).toBeDefined();
+    expect(loadedRecord!.session_id).toBe("sess-friction-001");
+    expect(loadedRecord!.signals.length).toBe(record.signals.length);
 
     // Step 5: Generate digest
     const analysisResult: AnalysisResult = {
