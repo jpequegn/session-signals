@@ -111,7 +111,7 @@ function extractToolResult(event: ClaudeCodeRawEvent): NormalizedEvent["tool_res
     if (typeof result === "object" && result !== null) {
       const r = result as Record<string, unknown>;
       const out: { success: boolean; output?: string; error?: string } = {
-        success: r["error"] === undefined,
+        success: r["success"] !== false && r["error"] === undefined,
       };
       if (typeof r["output"] === "string") out.output = r["output"];
       if (typeof r["error"] === "string") out.error = r["error"];
@@ -186,6 +186,8 @@ function rawToNormalized(raw: ClaudeCodeRawEvent): NormalizedEvent | null {
   return event;
 }
 
+const FILE_READ_BATCH_SIZE = 20;
+
 // ── Public API ──────────────────────────────────────────────────────
 
 export interface ClaudeCodeAdapterOptions {
@@ -240,9 +242,8 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
     const allEvents: NormalizedEvent[] = [];
     const jsonlFiles = await this.findJsonlFiles();
 
-    const BATCH_SIZE = 20;
-    for (let start = 0; start < jsonlFiles.length; start += BATCH_SIZE) {
-      const batch = jsonlFiles.slice(start, start + BATCH_SIZE);
+    for (let start = 0; start < jsonlFiles.length; start += FILE_READ_BATCH_SIZE) {
+      const batch = jsonlFiles.slice(start, start + FILE_READ_BATCH_SIZE);
       const results = await Promise.allSettled(
         batch.map((file) => readFile(file, "utf-8")),
       );
