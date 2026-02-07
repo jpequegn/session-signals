@@ -18,7 +18,13 @@ async function main(): Promise<void> {
   const raw = Buffer.concat(chunks).toString("utf-8").trim();
   if (!raw) return;
 
-  const parsed: unknown = JSON.parse(raw);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    console.error("[signal-tagger] warning: invalid JSON on stdin, ignoring");
+    return;
+  }
   if (!isHookInput(parsed)) return;
 
   const config = await loadConfig();

@@ -8,6 +8,7 @@ import {
   detectHarness,
   createAdapter,
   resolveScope,
+  resolveEventsDir,
   collectSignals,
   buildSignalRecord,
   signalsFilePath,
@@ -120,6 +121,25 @@ describe("detectHarness", () => {
     expect(detectHarness({ session_id: "s", transcript_path: "/home/user/.pi/agent/sessions/abc.jsonl" }, config)).toBe("pi_coding_agent");
   });
 
+  it("detects claude_code from CLAUDE_CODE_SESSION env var", () => {
+    const prev = process.env["CLAUDE_CODE_SESSION"];
+    try {
+      process.env["CLAUDE_CODE_SESSION"] = "some-session";
+      const noHarness = makeConfig({
+        harnesses: {
+          claude_code: { enabled: false, events_dir: "" },
+          gemini_cli: { enabled: false, events_dir: "" },
+          pi_coding_agent: { enabled: false, events_dir: "" },
+        },
+      });
+      // No transcript_path, no enabled harnesses — env var is the only signal
+      expect(detectHarness({ session_id: "s" }, noHarness)).toBe("claude_code");
+    } finally {
+      if (prev === undefined) delete process.env["CLAUDE_CODE_SESSION"];
+      else process.env["CLAUDE_CODE_SESSION"] = prev;
+    }
+  });
+
   it("falls back to first enabled harness", () => {
     const result = detectHarness({ session_id: "s" }, config);
     expect(result).toBe("claude_code");
@@ -190,6 +210,19 @@ describe("createAdapter", () => {
     // is only used when getSessionEvents reads from disk.
     const adapter = createAdapter("claude_code", config);
     expect(adapter).not.toBeNull();
+  });
+});
+
+// ── resolveEventsDir ────────────────────────────────────────────────
+
+describe("resolveEventsDir", () => {
+  it("expands ~/ to homedir", () => {
+    const result = resolveEventsDir("~/some/path");
+    expect(result).toBe(join(homedir(), "some/path"));
+  });
+
+  it("returns absolute paths unchanged", () => {
+    expect(resolveEventsDir("/absolute/path")).toBe("/absolute/path");
   });
 });
 

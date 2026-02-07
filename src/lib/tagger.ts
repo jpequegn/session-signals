@@ -34,13 +34,15 @@ export function isHookInput(obj: unknown): obj is HookInput {
 
 // ── Harness detection ───────────────────────────────────────────────
 
+// Returns the detected harness type based on transcript_path, env vars, or config.
+// Note: does NOT check whether the harness is enabled — caller must verify via createAdapter.
 export function detectHarness(input: HookInput, config: Config): HarnessType | null {
   // If transcript_path hints at the harness, use that
   const tp = input.transcript_path ?? "";
   if (/[/\\]\.claude[/\\]/.test(tp)) return "claude_code";
   if (/[/\\]\.gemini[/\\]/.test(tp)) return "gemini_cli";
   // Note: /.pi/ is a short name that could match unrelated directories.
-  // This is acceptable since env-var checks above take priority for disambiguation.
+  // This is acceptable since transcript_path checks above take priority for disambiguation.
   if (/[/\\]\.pi[/\\]/.test(tp)) return "pi_coding_agent";
 
   // Check environment variables
@@ -58,7 +60,7 @@ export function detectHarness(input: HookInput, config: Config): HarnessType | n
 
 // ── Adapter factory ─────────────────────────────────────────────────
 
-function resolveEventsDir(dir: string): string {
+export function resolveEventsDir(dir: string): string {
   if (dir.startsWith("~/")) {
     return join(homedir(), dir.slice(2));
   }

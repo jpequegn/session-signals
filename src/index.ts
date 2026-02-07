@@ -43,6 +43,7 @@ export {
   detectHarness,
   createAdapter,
   resolveScope,
+  resolveEventsDir,
   collectSignals,
   buildSignalRecord,
   signalsOutputDir,
