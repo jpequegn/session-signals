@@ -51,6 +51,9 @@ export {
   writeSignalRecord,
 } from "./lib/tagger.js";
 
+export type { OllamaClient, OllamaClientOptions, OllamaGenerateOptions } from "./lib/ollama-client.js";
+export { createOllamaClient, OllamaError, OllamaConnectionError, OllamaParseError } from "./lib/ollama-client.js";
+
 export {
   levenshteinRatio,
   detectRephraseStorm,
