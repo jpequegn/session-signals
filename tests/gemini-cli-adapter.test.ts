@@ -352,6 +352,25 @@ describe("GeminiCliAdapter", () => {
       expect(events).toEqual([]);
     });
 
+    it("reads session file with seconds in the timestamp", async () => {
+      const projectDir = join(tmpDir, "abc123");
+      const chatsDir = join(projectDir, "chats");
+      await mkdir(chatsDir, { recursive: true });
+
+      await writeFile(
+        join(chatsDir, "session-2025-09-18T02-45-30-3b44bc68.json"),
+        makeSession([userText("hello with seconds")]),
+      );
+
+      const tmpAdapter = new GeminiCliAdapter({ eventsDir: tmpDir, warn: () => {} });
+      const events = await tmpAdapter.getSessionEvents("session-2025-09-18T02-45-30-3b44bc68");
+      expect(events.length).toBeGreaterThan(0);
+      const prompt = events.find((e) => e.type === "user_prompt");
+      expect(prompt?.message).toBe("hello with seconds");
+      const sessionStart = events.find((e) => e.type === "session_start");
+      expect(sessionStart?.timestamp).toBe("2025-09-18T02:45:30.000Z");
+    });
+
     it("ignores session files with malformed stems", async () => {
       const projectDir = join(tmpDir, "abc123");
       const chatsDir = join(projectDir, "chats");

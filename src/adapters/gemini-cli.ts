@@ -61,16 +61,18 @@ function extractSessionId(filename: string): string | null {
   if (!filename.startsWith("session-") || !filename.endsWith(".json")) return null;
   const stem = filename.slice(0, -".json".length);
   // Validate the expected pattern exists
-  if (!/^session-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-[a-f\d]{8,}$/.test(stem)) return null;
+  if (!/^session-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}(?:-\d{2})?-[a-f\d]{8,}$/.test(stem)) return null;
   return stem;
 }
 
 /** Extract a timestamp hint from session filename */
 function extractTimestampFromFilename(filename: string): string | null {
-  // session-2026-02-05T10-00-deadbeef.json → date=2026-02-05, time=10-00
-  const match = filename.match(/^session-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-[a-f\d]+\.json$/);
+  // session-2026-02-05T10-00-deadbeef.json → date=2026-02-05, time=10:00:00
+  // session-2026-02-05T10-00-30-deadbeef.json → date=2026-02-05, time=10:00:30
+  const match = filename.match(/^session-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})(?:-(\d{2}))?-[a-f\d]+\.json$/);
   if (!match) return null;
-  return `${match[1]}T${match[2]}:${match[3]}:00.000Z`;
+  const seconds = match[4] ?? "00";
+  return `${match[1]}T${match[2]}:${match[3]}:${seconds}.000Z`;
 }
 
 // ── Content → NormalizedEvent conversion ────────────────────────────
