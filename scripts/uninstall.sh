@@ -32,12 +32,14 @@ warn()  { echo -e "${YELLOW}[uninstall]${NC} $1"; }
 
 remove_launchd() {
   local domain="gui/$(id -u)"
-  launchctl bootout "$domain/$PLIST_LABEL" 2>/dev/null || true
 
   if [[ -f "$PLIST_FILE" ]]; then
+    launchctl bootout "$domain/$PLIST_LABEL" 2>/dev/null || true
     rm "$PLIST_FILE"
     info "Removed $PLIST_FILE"
   else
+    # Service might be loaded without a plist file on disk
+    launchctl bootout "$domain/$PLIST_LABEL" 2>/dev/null || true
     info "No launchd plist found."
   fi
 }

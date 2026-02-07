@@ -92,8 +92,11 @@ setup_symlink() {
 # ── Claude Code hook registration ────────────────────────────────────
 
 setup_hook() {
+  # Resolve bun's absolute path at install time so the hook works even if
+  # Claude Code's runtime PATH doesn't include bun. Tradeoff: if bun moves
+  # after install, re-run install.sh to update the path.
   local bun_path
-  bun_path="$(command -v bun)"
+  bun_path="$(command -v bun)" || { error "bun not found on PATH. Install bun first."; exit 1; }
   local hook_command="$bun_path $SIGNALS_DIR/signal-tagger.ts"
 
   # Create settings.json if it doesn't exist
@@ -164,7 +167,7 @@ xml_escape() {
 
 setup_launchd() {
   local bun_path
-  bun_path="$(command -v bun)"
+  bun_path="$(command -v bun)" || { error "bun not found on PATH. Install bun first."; exit 1; }
   local analyzer_path="$PROJECT_DIR/src/pattern-analyzer.ts"
   local log_dir="$HOME/Library/Logs/session-signals"
   mkdir -p "$log_dir"
