@@ -1,3 +1,4 @@
+export { HARNESS_TYPES } from "./lib/types.js";
 export type {
   HarnessType,
   NormalizedEventType,

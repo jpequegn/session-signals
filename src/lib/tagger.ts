@@ -5,6 +5,7 @@ import { ClaudeCodeAdapter } from "../adapters/claude-code.js";
 import { GeminiCliAdapter } from "../adapters/gemini-cli.js";
 import { PiCodingAgentAdapter } from "../adapters/pi-coding-agent.js";
 import type { HarnessAdapter } from "../adapters/types.js";
+import { HARNESS_TYPES } from "./types.js";
 import type { Config, FrictionSignal, HarnessType, NormalizedEvent, Scope, SignalRecord } from "./types.js";
 import {
   detectRephraseStorm,
@@ -46,8 +47,7 @@ export function detectHarness(input: HookInput, config: Config): HarnessType | n
   if (process.env["PI_CODING_AGENT_DIR"]) return "pi_coding_agent";
 
   // Default to the first enabled harness (only if it's a known type)
-  const knownHarnesses: HarnessType[] = ["claude_code", "gemini_cli", "pi_coding_agent"];
-  for (const key of knownHarnesses) {
+  for (const key of HARNESS_TYPES) {
     if (config.harnesses[key]?.enabled) return key;
   }
 
@@ -88,8 +88,11 @@ export function resolveScope(cwd: string, config: Config): Scope {
     p.startsWith("~/") ? join(homedir(), p.slice(2)) : p,
   );
 
+  const normalize = (p: string) => p.replace(/\\/g, "/");
+  const normalizedCwd = normalize(cwd);
   for (const paiPath of expandedPaiPaths) {
-    if (cwd === paiPath || cwd.startsWith(paiPath + "/") || cwd.startsWith(paiPath + "\\")) return "pai";
+    const normalizedPai = normalize(paiPath);
+    if (normalizedCwd === normalizedPai || normalizedCwd.startsWith(normalizedPai + "/")) return "pai";
   }
 
   return `project:${cwd}`;
@@ -164,7 +167,15 @@ export async function writeSignalRecord(record: SignalRecord, outputDir?: string
   const dir = outputDir ?? signalsOutputDir();
   await mkdir(dir, { recursive: true });
   const date = record.timestamp.slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  let validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
+  if (validDate) {
+    try {
+      validDate = new Date(date + "T00:00:00Z").toISOString().slice(0, 10) === date;
+    } catch {
+      validDate = false;
+    }
+  }
+  if (!validDate) {
     throw new Error(`Invalid timestamp in signal record: "${record.timestamp}"`);
   }
   const filePath = join(dir, `${date}_signals.jsonl`);

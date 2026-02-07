@@ -1,6 +1,7 @@
 // ── Harness identification ──────────────────────────────────────────
 
-export type HarnessType = "claude_code" | "gemini_cli" | "pi_coding_agent";
+export const HARNESS_TYPES = ["claude_code", "gemini_cli", "pi_coding_agent"] as const;
+export type HarnessType = (typeof HARNESS_TYPES)[number];
 
 // ── Normalized events ──────────────────────────────────────────────
 
