@@ -56,6 +56,7 @@ check_prerequisites() {
 setup_directories() {
   info "Creating directories..."
 
+  mkdir -p "$HOME/.claude"
   mkdir -p "$SIGNALS_DIR"
   mkdir -p "$SIGNALS_HISTORY_DIR"
   mkdir -p "$DIGESTS_DIR"
@@ -152,6 +153,8 @@ xml_escape() {
   s="${s//&/&amp;}"
   s="${s//</&lt;}"
   s="${s//>/&gt;}"
+  s="${s//\"/&quot;}"
+  s="${s//\'/&apos;}"
   printf '%s' "$s"
 }
 
