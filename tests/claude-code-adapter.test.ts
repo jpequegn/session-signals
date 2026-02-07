@@ -1,4 +1,7 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { ClaudeCodeAdapter } from "../src/adapters/claude-code.js";
 
 function jsonl(...objects: Record<string, unknown>[]): string {
@@ -278,9 +281,94 @@ describe("ClaudeCodeAdapter", () => {
   });
 
   describe("getSessionEvents", () => {
+    let tmpDir: string;
+
+    beforeEach(async () => {
+      tmpDir = await mkdtemp(join(tmpdir(), "cc-adapter-test-"));
+    });
+
+    afterEach(async () => {
+      await rm(tmpDir, { recursive: true, force: true });
+    });
+
     it("returns empty array when events dir does not exist", async () => {
       const events = await adapter.getSessionEvents("nonexistent-session");
       expect(events).toEqual([]);
+    });
+
+    it("reads and filters events by session ID", async () => {
+      const monthDir = join(tmpDir, "2026-02");
+      await mkdir(monthDir, { recursive: true });
+
+      const content = jsonl(
+        makeEvent({ session_id: "target-session", timestamp: "2026-02-05T10:00:00.000Z" }),
+        makeEvent({ session_id: "other-session", timestamp: "2026-02-05T10:00:01.000Z" }),
+        makeEvent({ session_id: "target-session", timestamp: "2026-02-05T10:00:02.000Z" }),
+      );
+      await writeFile(join(monthDir, "abc_all-events.jsonl"), content);
+
+      const tmpAdapter = new ClaudeCodeAdapter({ eventsDir: tmpDir, warn: () => {} });
+      const events = await tmpAdapter.getSessionEvents("target-session");
+      expect(events).toHaveLength(2);
+      expect(events.every((e) => e.session_id === "target-session")).toBe(true);
+    });
+
+    it("returns events sorted chronologically", async () => {
+      const monthDir = join(tmpDir, "2026-02");
+      await mkdir(monthDir, { recursive: true });
+
+      const content = jsonl(
+        makeEvent({ session_id: "s1", timestamp: "2026-02-05T10:00:03.000Z" }),
+        makeEvent({ session_id: "s1", timestamp: "2026-02-05T10:00:01.000Z" }),
+        makeEvent({ session_id: "s1", timestamp: "2026-02-05T10:00:02.000Z" }),
+      );
+      await writeFile(join(monthDir, "abc_all-events.jsonl"), content);
+
+      const tmpAdapter = new ClaudeCodeAdapter({ eventsDir: tmpDir, warn: () => {} });
+      const events = await tmpAdapter.getSessionEvents("s1");
+      expect(events).toHaveLength(3);
+      expect(events[0]!.timestamp).toBe("2026-02-05T10:00:01.000Z");
+      expect(events[1]!.timestamp).toBe("2026-02-05T10:00:02.000Z");
+      expect(events[2]!.timestamp).toBe("2026-02-05T10:00:03.000Z");
+    });
+
+    it("reads events across multiple files and month directories", async () => {
+      const month1 = join(tmpDir, "2026-01");
+      const month2 = join(tmpDir, "2026-02");
+      await mkdir(month1, { recursive: true });
+      await mkdir(month2, { recursive: true });
+
+      await writeFile(
+        join(month1, "file1_all-events.jsonl"),
+        jsonl(makeEvent({ session_id: "s1", timestamp: "2026-01-15T10:00:00.000Z" })),
+      );
+      await writeFile(
+        join(month2, "file2_all-events.jsonl"),
+        jsonl(makeEvent({ session_id: "s1", timestamp: "2026-02-05T10:00:00.000Z" })),
+      );
+
+      const tmpAdapter = new ClaudeCodeAdapter({ eventsDir: tmpDir, warn: () => {} });
+      const events = await tmpAdapter.getSessionEvents("s1");
+      expect(events).toHaveLength(2);
+      expect(events[0]!.timestamp).toBe("2026-01-15T10:00:00.000Z");
+      expect(events[1]!.timestamp).toBe("2026-02-05T10:00:00.000Z");
+    });
+
+    it("skips malformed lines in JSONL files and still returns valid events", async () => {
+      const monthDir = join(tmpDir, "2026-02");
+      await mkdir(monthDir, { recursive: true });
+
+      const content = `{bad json\n${JSON.stringify(makeEvent({ session_id: "s1", timestamp: "2026-02-05T10:00:00.000Z" }))}`;
+      await writeFile(join(monthDir, "mixed_all-events.jsonl"), content);
+
+      const warnings: string[] = [];
+      const tmpAdapter = new ClaudeCodeAdapter({
+        eventsDir: tmpDir,
+        warn: (msg) => warnings.push(msg),
+      });
+      const events = await tmpAdapter.getSessionEvents("s1");
+      expect(events).toHaveLength(1);
+      expect(warnings.some((w) => w.includes("malformed JSONL"))).toBe(true);
     });
   });
 });

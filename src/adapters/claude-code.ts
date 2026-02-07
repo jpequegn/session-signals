@@ -150,7 +150,7 @@ function extractMessage(event: ClaudeCodeRawEvent): string | undefined {
 function extractCwd(event: ClaudeCodeRawEvent): string | undefined {
   const payload = event.payload;
   if (!payload) return undefined;
-  return (payload["cwd"] as string | undefined) ?? undefined;
+  return payload["cwd"] as string | undefined;
 }
 
 function rawToNormalized(raw: ClaudeCodeRawEvent): NormalizedEvent | null {
@@ -264,7 +264,12 @@ export class ClaudeCodeAdapter implements HarnessAdapter {
       }
     }
 
-    return allEvents.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+    return allEvents.sort((a, b) => {
+      const ta = Date.parse(a.timestamp);
+      const tb = Date.parse(b.timestamp);
+      if (Number.isNaN(ta) || Number.isNaN(tb)) return a.timestamp.localeCompare(b.timestamp);
+      return ta - tb;
+    });
   }
 
   private async findJsonlFiles(): Promise<string[]> {
