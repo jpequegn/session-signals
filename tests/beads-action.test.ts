@@ -330,6 +330,28 @@ describe("executeBeadsAction", () => {
     expect(warnings.length).toBeGreaterThan(0);
   });
 
+  it("reports timeout when CLI is killed", async () => {
+    const cli = mockCli({
+      search: async () => {
+        const err = new Error("killed") as Error & { killed: boolean };
+        err.killed = true;
+        throw err;
+      },
+    });
+    const warnings: string[] = [];
+
+    const results = await executeBeadsAction(
+      [makePattern()],
+      defaultConfig,
+      { cli, warn: (msg) => warnings.push(msg) },
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.action).toBe("skipped");
+    expect(results[0]!.reason).toContain("timed out");
+    expect(warnings.some((w) => w.includes("timed out"))).toBe(true);
+  });
+
   it("handles CLI errors gracefully", async () => {
     const cli = mockCli({
       search: async () => { throw new Error("CLI crashed"); },

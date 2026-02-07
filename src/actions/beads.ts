@@ -64,7 +64,7 @@ export function createBeadsCli(): BeadsCli {
     },
 
     async search(query: string): Promise<string> {
-      const { stdout } = await runBd(["search", query]);
+      const { stdout } = await runBd(["search", "--", query]);
       return stdout;
     },
 
@@ -92,7 +92,7 @@ export function findExistingIssue(searchOutput: string, title: string): string |
 
   for (const line of lines) {
     // Extract issue ID — typically the first token (e.g. "SS-1", "PROJ-42")
-    const match = line.match(/^([A-Z]+-\d+|[a-z]+-\d+|\w+-\d+)/);
+    const match = line.match(/^(\w+-\d+)/);
     if (!match?.[1]) continue;
 
     const rest = line.slice(match[0].length).trim();
