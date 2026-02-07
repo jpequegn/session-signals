@@ -145,7 +145,15 @@ export function signalsOutputDir(): string {
 
 export function signalsFilePath(date?: string): string {
   const d = date ?? new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(new Date(d).getTime())) {
+  let valid = /^\d{4}-\d{2}-\d{2}$/.test(d);
+  if (valid) {
+    try {
+      valid = new Date(d + "T00:00:00Z").toISOString().slice(0, 10) === d;
+    } catch {
+      valid = false;
+    }
+  }
+  if (!valid) {
     throw new Error(`Invalid date format: expected YYYY-MM-DD, got "${d}"`);
   }
   return join(signalsOutputDir(), `${d}_signals.jsonl`);

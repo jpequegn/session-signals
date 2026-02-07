@@ -10,6 +10,7 @@ import {
   resolveScope,
   collectSignals,
   buildSignalRecord,
+  signalsFilePath,
 } from "../src/lib/tagger.js";
 
 // ── Test config ─────────────────────────────────────────────────────
@@ -320,6 +321,75 @@ describe("buildSignalRecord", () => {
     const record = buildSignalRecord("s", events, config, "/tmp/test");
     expect(record.signals.length).toBeGreaterThan(0);
     expect(record.signals[0]!.type).toBe("context_churn");
+  });
+});
+
+// ── signalsFilePath ─────────────────────────────────────────────────
+
+describe("signalsFilePath", () => {
+  it("returns path for a valid date", () => {
+    const p = signalsFilePath("2026-02-05");
+    expect(p).toContain("2026-02-05_signals.jsonl");
+  });
+
+  it("rejects non-YYYY-MM-DD format", () => {
+    expect(() => signalsFilePath("20260205")).toThrow("Invalid date format");
+  });
+
+  it("rejects rolled-over dates like Feb 31", () => {
+    expect(() => signalsFilePath("2026-02-31")).toThrow("Invalid date format");
+  });
+
+  it("rejects month 13", () => {
+    expect(() => signalsFilePath("2026-13-01")).toThrow("Invalid date format");
+  });
+});
+
+// ── writeSignalRecord integration ───────────────────────────────────
+
+describe("writeSignalRecord integration", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), "tagger-write-"));
+    idCounter = 0;
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("buildSignalRecord produces valid JSONL-serializable output with signals", async () => {
+    const events = [
+      makeEvent({ type: "session_start", timestamp: tsSec(0) }),
+      makeEvent({ type: "compaction", timestamp: tsSec(1) }),
+      makeEvent({ type: "compaction", timestamp: tsSec(2) }),
+      makeEvent({ type: "session_end", timestamp: tsSec(10) }),
+    ];
+    const config = makeConfig();
+    const record = buildSignalRecord("write-test", events, config, "/tmp/test");
+
+    // Simulate what writeSignalRecord does: serialize to JSONL and write
+    const outDir = join(tmpDir, "signals");
+    await mkdir(outDir, { recursive: true });
+    const date = record.timestamp.slice(0, 10);
+    const outPath = join(outDir, `${date}_signals.jsonl`);
+    const line = JSON.stringify(record) + "\n";
+    await writeFile(outPath, line, "utf-8");
+
+    // Read back and verify
+    const content = await readFile(outPath, "utf-8");
+    const lines = content.trim().split("\n");
+    expect(lines.length).toBe(1);
+
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed.session_id).toBe("write-test");
+    expect(parsed.scope).toBe("project:/tmp/test");
+    expect(parsed.signals.length).toBeGreaterThan(0);
+    expect(parsed.signals[0].type).toBe("context_churn");
+    expect(parsed.facets).toBeDefined();
+    expect(parsed.facets.outcome).toBe("completed");
+    expect(parsed.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });
 

@@ -31,7 +31,11 @@ async function main(): Promise<void> {
   const events = await adapter.getSessionEvents(parsed.session_id);
   if (events.length === 0) return;
 
-  const cwd = parsed.cwd ?? events.find((e) => e.cwd)?.cwd ?? process.cwd();
+  const cwdFromEvents = parsed.cwd ?? events.find((e) => e.cwd)?.cwd;
+  if (!cwdFromEvents && process.env["ROBOREV_DEBUG"]) {
+    console.error("[signal-tagger] no cwd in hook input or events, falling back to process.cwd()");
+  }
+  const cwd = cwdFromEvents ?? process.cwd();
   const record = buildSignalRecord(parsed.session_id, events, config, cwd);
 
   await writeSignalRecord(record);
