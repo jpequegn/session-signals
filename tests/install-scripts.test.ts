@@ -22,10 +22,11 @@ afterEach(async () => {
 
 // Run a bun script in the test directory to simulate the JSON manipulation
 // that install.sh and uninstall.sh perform
-async function runBunScript(script: string): Promise<string> {
+async function runBunScript(script: string, env: Record<string, string> = {}): Promise<string> {
   const { stdout } = await execFileAsync("bun", ["-e", script], {
     timeout: 10_000,
     cwd: testDir,
+    env: { ...process.env, ...env },
   });
   return stdout;
 }
@@ -40,8 +41,8 @@ describe("hook registration", () => {
     const hookCmd = "/home/user/.claude/signals/signal-tagger.ts";
     await runBunScript(`
       const fs = require('fs');
-      const path = '${settingsPath}';
-      const hookCmd = '${hookCmd}';
+      const path = process.env.SETTINGS_PATH;
+      const hookCmd = process.env.HOOK_CMD;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       if (!settings.hooks) settings.hooks = {};
@@ -53,17 +54,17 @@ describe("hook registration", () => {
       if (!existing) {
         settings.hooks.SessionEnd.push({
           matcher: '',
-          hooks: [{ type: 'command', command: hookCmd, timeout: 5 }],
+          hooks: [{ type: 'command', command: hookCmd, timeout: 15 }],
         });
       }
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `);
+    `, { SETTINGS_PATH: settingsPath, HOOK_CMD: hookCmd });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks.SessionEnd).toHaveLength(1);
     expect(result.hooks.SessionEnd[0].hooks[0].command).toBe(hookCmd);
-    expect(result.hooks.SessionEnd[0].hooks[0].timeout).toBe(5);
+    expect(result.hooks.SessionEnd[0].hooks[0].timeout).toBe(15);
     expect(result.hooks.SessionEnd[0].hooks[0].type).toBe("command");
     expect(result.hooks.SessionEnd[0].matcher).toBe("");
   });
@@ -82,8 +83,8 @@ describe("hook registration", () => {
     const hookCmd = "/home/user/.claude/signals/signal-tagger.ts";
     await runBunScript(`
       const fs = require('fs');
-      const path = '${settingsPath}';
-      const hookCmd = '${hookCmd}';
+      const path = process.env.SETTINGS_PATH;
+      const hookCmd = process.env.HOOK_CMD;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       if (!settings.hooks) settings.hooks = {};
@@ -95,12 +96,12 @@ describe("hook registration", () => {
       if (!exists) {
         settings.hooks.SessionEnd.push({
           matcher: '',
-          hooks: [{ type: 'command', command: hookCmd, timeout: 5 }],
+          hooks: [{ type: 'command', command: hookCmd, timeout: 15 }],
         });
       }
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `);
+    `, { SETTINGS_PATH: settingsPath, HOOK_CMD: hookCmd });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks.SessionEnd).toHaveLength(2);
@@ -114,7 +115,7 @@ describe("hook registration", () => {
     const existing = {
       hooks: {
         SessionEnd: [
-          { matcher: "", hooks: [{ type: "command", command: hookCmd, timeout: 5 }] },
+          { matcher: "", hooks: [{ type: "command", command: hookCmd, timeout: 15 }] },
         ],
       },
     };
@@ -122,8 +123,8 @@ describe("hook registration", () => {
 
     await runBunScript(`
       const fs = require('fs');
-      const path = '${settingsPath}';
-      const hookCmd = '${hookCmd}';
+      const path = process.env.SETTINGS_PATH;
+      const hookCmd = process.env.HOOK_CMD;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       if (!settings.hooks) settings.hooks = {};
@@ -135,12 +136,12 @@ describe("hook registration", () => {
       if (!exists) {
         settings.hooks.SessionEnd.push({
           matcher: '',
-          hooks: [{ type: 'command', command: hookCmd, timeout: 5 }],
+          hooks: [{ type: 'command', command: hookCmd, timeout: 15 }],
         });
       }
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `);
+    `, { SETTINGS_PATH: settingsPath, HOOK_CMD: hookCmd });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks.SessionEnd).toHaveLength(1);
@@ -155,7 +156,7 @@ describe("hook registration", () => {
 
     await runBunScript(`
       const fs = require('fs');
-      const path = '${settingsPath}';
+      const path = process.env.SETTINGS_PATH;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       if (!settings.hooks) settings.hooks = {};
@@ -163,11 +164,11 @@ describe("hook registration", () => {
 
       settings.hooks.SessionEnd.push({
         matcher: '',
-        hooks: [{ type: 'command', command: 'signal-tagger.ts', timeout: 5 }],
+        hooks: [{ type: 'command', command: 'signal-tagger.ts', timeout: 15 }],
       });
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `);
+    `, { SETTINGS_PATH: settingsPath });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.theme).toBe("dark");
@@ -193,7 +194,7 @@ describe("hook removal", () => {
 
     await runBunScript(`
       const fs = require('fs');
-      const path = '${settingsPath}';
+      const path = process.env.SETTINGS_PATH;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
@@ -203,7 +204,7 @@ describe("hook removal", () => {
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `);
+    `, { SETTINGS_PATH: settingsPath });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks.SessionEnd).toHaveLength(1);
@@ -224,7 +225,7 @@ describe("hook removal", () => {
 
     await runBunScript(`
       const fs = require('fs');
-      const path = '${settingsPath}';
+      const path = process.env.SETTINGS_PATH;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
@@ -234,7 +235,7 @@ describe("hook removal", () => {
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `);
+    `, { SETTINGS_PATH: settingsPath });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks).toBeUndefined();
@@ -257,7 +258,7 @@ describe("hook removal", () => {
 
     await runBunScript(`
       const fs = require('fs');
-      const path = '${settingsPath}';
+      const path = process.env.SETTINGS_PATH;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
@@ -267,7 +268,7 @@ describe("hook removal", () => {
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `);
+    `, { SETTINGS_PATH: settingsPath });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks).toBeDefined();
@@ -288,7 +289,7 @@ describe("hook removal", () => {
 
     await runBunScript(`
       const fs = require('fs');
-      const path = '${settingsPath}';
+      const path = process.env.SETTINGS_PATH;
 
       let settings = JSON.parse(fs.readFileSync(path, 'utf-8'));
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
@@ -298,7 +299,7 @@ describe("hook removal", () => {
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 
       fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\\n', 'utf-8');
-    `);
+    `, { SETTINGS_PATH: settingsPath });
 
     const result = JSON.parse(await readFile(settingsPath, "utf-8"));
     expect(result.hooks.SessionEnd).toHaveLength(1);

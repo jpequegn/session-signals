@@ -84,7 +84,7 @@ setup_symlink() {
     rm "$target"
   fi
 
-  ln -sf "$source" "$target"
+  ln -s "$source" "$target"
   chmod +x "$source"
   info "Symlinked signal-tagger.ts"
 }
@@ -101,10 +101,10 @@ setup_hook() {
   fi
 
   # Use bun to safely merge the hook entry (non-destructive)
-  bun -e "
+  SETTINGS_PATH="$SETTINGS_FILE" HOOK_CMD="$hook_command" bun -e "
     const fs = require('fs');
-    const path = '$SETTINGS_FILE';
-    const hookCmd = '$hook_command';
+    const path = process.env.SETTINGS_PATH;
+    const hookCmd = process.env.HOOK_CMD;
 
     let settings;
     try {
@@ -136,7 +136,7 @@ setup_hook() {
         {
           type: 'command',
           command: hookCmd,
-          timeout: 5,
+          timeout: 15,
         },
       ],
     });
@@ -152,8 +152,10 @@ setup_launchd() {
   local bun_path
   bun_path="$(command -v bun)"
   local analyzer_path="$PROJECT_DIR/src/pattern-analyzer.ts"
-  local log_path="/tmp/session-signals.log"
-  local error_log_path="/tmp/session-signals-error.log"
+  local log_dir="$HOME/Library/Logs/session-signals"
+  mkdir -p "$log_dir"
+  local log_path="$log_dir/session-signals.log"
+  local error_log_path="$log_dir/session-signals-error.log"
 
   mkdir -p "$PLIST_DIR"
 
@@ -190,6 +192,8 @@ setup_launchd() {
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/usr/bin:/bin:$(dirname "$bun_path")</string>
+        <key>HOME</key>
+        <string>$HOME</string>
     </dict>
 </dict>
 </plist>

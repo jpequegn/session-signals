@@ -76,9 +76,9 @@ remove_hook() {
     return
   fi
 
-  bun -e "
+  SETTINGS_PATH="$SETTINGS_FILE" bun -e "
     const fs = require('fs');
-    const path = '$SETTINGS_FILE';
+    const path = process.env.SETTINGS_PATH;
 
     let settings;
     try {
@@ -129,6 +129,12 @@ purge_data() {
   if [[ -d "$signals_history" ]]; then
     rm -rf "$signals_history"
     info "Purged signal history data."
+  fi
+
+  local log_dir="$HOME/Library/Logs/session-signals"
+  if [[ -d "$log_dir" ]]; then
+    rm -rf "$log_dir"
+    info "Removed log directory."
   fi
 }
 
