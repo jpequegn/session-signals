@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import type {
   Config,
+  PatternTrend,
+  Severity,
   SignalRecord,
 } from "../lib/types.js";
 import type { AnalysisResult } from "../lib/pattern-analyzer.js";
@@ -32,22 +34,22 @@ function resolveDir(dir: string): string {
   return dir;
 }
 
-function severityEmoji(severity: string): string {
+function severityEmoji(severity: Severity): string {
   switch (severity) {
     case "high": return "🔴";
     case "medium": return "🟡";
     case "low": return "🟢";
-    default: return "⚪";
+    default: return severity satisfies never;
   }
 }
 
-function trendArrow(trend: string): string {
+function trendArrow(trend: PatternTrend): string {
   switch (trend) {
     case "increasing": return "↗️";
     case "stable": return "→";
     case "decreasing": return "↘️";
     case "new": return "🆕";
-    default: return "?";
+    default: return trend satisfies never;
   }
 }
 
@@ -120,7 +122,7 @@ function generateFrictionPatterns(
 
     const beadsResult = beadsMap.get(pattern.id);
     if (beadsResult?.action === "created" || beadsResult?.action === "updated") {
-      lines.push(`- **Beads issue:** ${beadsResult.issue_title ?? "linked"}`);
+      lines.push(`- **Beads issue:** ${beadsResult.issue_title ?? pattern.id}`);
     }
 
     if (pattern.affected_files.length > 0) {

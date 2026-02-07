@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import type {
   Config,
   FrictionSignal,
@@ -613,6 +613,28 @@ describe("executeDigestAction", () => {
       expect(result!.path).toContain(`${today}_digest.md`);
     } finally {
       await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("expands ~/ prefix in output_dir to home directory", async () => {
+    const subdir = `digest-test-${Date.now()}`;
+    const input = makeInput({
+      config: makeConfig({
+        actions: {
+          beads: { enabled: true, min_severity: "medium", min_frequency: 2, title_prefix: "[signals]" },
+          digest: { enabled: true, output_dir: `~/${subdir}` },
+          autofix: { enabled: false, min_severity: "high", min_frequency: 3, branch_prefix: "signals/fix-", branch_ttl_days: 7, allowed_tools: [] },
+        },
+      }),
+    });
+
+    const expandedDir = join(homedir(), subdir);
+    try {
+      const result = await executeDigestAction(input);
+      expect(result).not.toBeNull();
+      expect(result!.path).toStartWith(expandedDir);
+    } finally {
+      await rm(expandedDir, { recursive: true, force: true });
     }
   });
 });
