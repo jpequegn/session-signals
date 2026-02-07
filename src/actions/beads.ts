@@ -92,7 +92,7 @@ export function findExistingIssue(searchOutput: string, title: string): string |
 
   for (const line of lines) {
     // Extract issue ID — typically the first token (e.g. "SS-1", "PROJ-42")
-    const match = line.match(/^([A-Z]+-\d+|[a-z]+-\d+|\S+)/);
+    const match = line.match(/^([A-Z]+-\d+|[a-z]+-\d+|\w+-\d+)/);
     if (!match?.[1]) continue;
 
     const rest = line.slice(match[0].length).trim();
@@ -105,9 +105,12 @@ export function findExistingIssue(searchOutput: string, title: string): string |
     // Exact match, or match ignoring trailing whitespace (e.g. single trailing space).
     if (rest === title || rest.trimEnd() === title) return match[1];
     // Tolerate trailing columns (status, labels, etc.) separated by tab or
-    // double-space (bd search uses whitespace-padded columns, not single spaces).
-    // 2-char lookahead covers both tab (\t at pos 0) and double-space separators
-    if (rest.startsWith(title) && /\t| {2}/.test(rest.slice(title.length, title.length + 2))) return match[1];
+    // double-space. Require a non-word char (or end of string) right after the
+    // title to avoid partial-word matches like "Foo" matching "Foozy".
+    if (rest.startsWith(title)) {
+      const after = rest.charAt(title.length);
+      if (after === "" || after === "\t" || (after === " " && rest.charAt(title.length + 1) === " ")) return match[1];
+    }
   }
 
   return null;
@@ -136,7 +139,16 @@ export function buildUpdateComment(pattern: Pattern): string {
 
 export function buildTrendComment(pattern: Pattern): string {
   if (pattern.trend === "decreasing") {
-    return `**Trend improving** (${new Date().toISOString().slice(0, 10)}): This pattern is decreasing in frequency (${pattern.frequency} sessions). May resolve on its own.`;
+    const lines = [
+      `**Trend improving** (${new Date().toISOString().slice(0, 10)}): This pattern is decreasing in frequency (${pattern.frequency} sessions). May resolve on its own.`,
+    ];
+    if (pattern.root_cause_hypothesis) {
+      lines.push(`- **Root cause hypothesis:** ${pattern.root_cause_hypothesis}`);
+    }
+    if (pattern.suggested_fix) {
+      lines.push(`- **Suggested fix:** ${pattern.suggested_fix}`);
+    }
+    return lines.join("\n");
   }
   return buildUpdateComment(pattern);
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import type { BeadsActionConfig, Pattern, Severity } from "../src/lib/types.js";
+import type { BeadsActionConfig, Pattern } from "../src/lib/types.js";
 import type { BeadsCli } from "../src/actions/beads.js";
 import {
   meetsThreshold,
@@ -309,6 +309,25 @@ describe("executeBeadsAction", () => {
     expect(commentedId).toBe("SS-42");
     expect(commentText).toContain("Signal update");
     expect(searchedQuery).toBe("Repeated shell failures in tests");
+  });
+
+  it("handles addComment failure after successful search", async () => {
+    const cli = mockCli({
+      search: async () => "SS-42  [signals] Repeated shell failures in tests",
+      addComment: async () => { throw new Error("Comment failed"); },
+    });
+    const warnings: string[] = [];
+
+    const results = await executeBeadsAction(
+      [makePattern()],
+      defaultConfig,
+      { cli, warn: (msg) => warnings.push(msg) },
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.action).toBe("skipped");
+    expect(results[0]!.reason).toContain("Error");
+    expect(warnings.length).toBeGreaterThan(0);
   });
 
   it("handles CLI errors gracefully", async () => {
